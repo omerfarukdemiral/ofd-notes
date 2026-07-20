@@ -1,0 +1,29 @@
+/* canlı sayfa katmanı — export'u etkilemez, sadece tarayıcıda görünümü düzenler */
+body { background:#08070E; padding:0 0 72px; }
+
+.page-head {
+  max-width:1200px; margin:0 auto; padding:64px 24px 24px;
+  font-family:'IBM Plex Mono',monospace; color:#625F80;
+}
+.page-head .back { font-size:15px; letter-spacing:1px; color:#A78BFA; text-decoration:none; }
+.page-head .back:hover { text-decoration:underline; }
+.page-head h1 {
+  font-family:'Space Grotesk',sans-serif; color:#CDCBE0;
+  font-size:38px; font-weight:700; line-height:1.2; margin:20px 0 12px;
+}
+.page-head p { font-size:16px; line-height:1.75; max-width:70ch; }
+.page-head .meta { margin-top:18px; font-size:14px; letter-spacing:1px; }
+.page-head .rule { border:0; border-top:1px solid #201D38; margin:28px 0 0; }
+
+.page-foot {
+  max-width:1200px; margin:48px auto 0; padding:24px;
+  border-top:1px solid #201D38;
+  font-family:'IBM Plex Mono',monospace; font-size:14px; color:#625F80;
+  display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap;
+}
+.page-foot a { color:#A78BFA; text-decoration:none; }
+
+@media (max-width:720px) {
+  .page-head { padding:40px 16px 16px; }
+  .page-head h1 { font-size:28px; }
+}

@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>field-notes — sahadan notlar</title>
+<meta name="description" content="Uzun teknik videoların içinden çıkarılmış infografik kartları. Ömer Faruk Demiral.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root {
+  --bg:#0B0A12; --grid:#161426; --ink:#CDCBE0; --accent:#A78BFA;
+  --accent-fill:#151028; --line:#2C2946; --muted:#625F80; --div:#201D38;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  background:var(--bg);
+  background-image:linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size:16px 16px;
+  font-family:'Space Grotesk',sans-serif; color:var(--ink);
+  min-height:100vh; padding:0 24px 80px;
+}
+.wrap { max-width:900px; margin:0 auto; }
+
+header { padding:96px 0 40px; border-bottom:1px solid var(--div); }
+.serial { font-family:'IBM Plex Mono',monospace; font-size:16px; letter-spacing:4px; color:var(--accent); }
+h1 { font-size:64px; font-weight:700; line-height:1.05; margin:22px 0 20px; letter-spacing:-1px; }
+.lede { font-family:'IBM Plex Mono',monospace; font-size:18px; line-height:1.8; color:var(--muted); max-width:62ch; }
+.lede b { color:var(--ink); font-weight:500; }
+blockquote {
+  font-family:'IBM Plex Mono',monospace; font-size:17px; color:var(--muted);
+  border-left:3px solid var(--accent); padding-left:20px; margin-top:28px;
+}
+
+h2 {
+  font-family:'IBM Plex Mono',monospace; font-size:16px; letter-spacing:3px;
+  color:var(--muted); margin:56px 0 22px; text-transform:uppercase;
+}
+
+a.card {
+  display:block; text-decoration:none; color:inherit;
+  border:1px solid var(--line); border-radius:8px; padding:30px 32px; margin-bottom:18px;
+  transition:border-color .15s, background .15s;
+}
+a.card:hover { border-color:var(--accent); background:var(--accent-fill); }
+a.card .k { font-family:'IBM Plex Mono',monospace; font-size:14px; letter-spacing:2px; color:var(--accent); }
+a.card h3 { font-size:29px; font-weight:600; line-height:1.2; margin:12px 0 10px; }
+a.card p { font-family:'IBM Plex Mono',monospace; font-size:16px; line-height:1.7; color:var(--muted); }
+a.card .m {
+  font-family:'IBM Plex Mono',monospace; font-size:14px; color:var(--muted);
+  margin-top:18px; padding-top:16px; border-top:1px solid var(--div);
+  display:flex; gap:10px; flex-wrap:wrap;
+}
+a.card .m span::after { content:" ·"; color:var(--line); }
+a.card .m span:last-child::after { content:""; }
+
+.how { font-family:'IBM Plex Mono',monospace; font-size:16px; line-height:1.85; color:var(--muted); }
+.how b { color:var(--ink); font-weight:500; }
+
+footer {
+  margin-top:64px; padding-top:24px; border-top:1px solid var(--div);
+  font-family:'IBM Plex Mono',monospace; font-size:14px; color:var(--muted);
+  display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap;
+}
+footer a { color:var(--accent); text-decoration:none; }
+
+@media (max-width:720px) {
+  header { padding:56px 0 32px; }
+  h1 { font-size:40px; }
+  a.card h3 { font-size:24px; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <span class="serial">FIELD-NOTES</span>
+    <h1>sahadan notlar</h1>
+    <p class="lede">
+      öğrendiğim, denediğim, uyguladığım her şeyin damıtılmış hali burada.
+      araştırmalar, deneyler, işe yarayan yaklaşımlar, işe yaramayanlardan çıkan dersler.
+      <b>bitmiş bir doküman değil — sürekli büyüyen bir defter.</b>
+    </p>
+    <blockquote>not almak öğrenmenin yarısı, paylaşmak diğer yarısı.</blockquote>
+  </header>
+
+  <h2>video notları</h2>
+
+  <a class="card" href="video-notlari/lennys-podcast-boris-cherny/infografik.html">
+    <span class="k">LENNY'S PODCAST</span>
+    <h3>claude code'un bir yılı — boris cherny</h3>
+    <p>ürünün nasıl çıktığı, ekibin prensipleri, ai ürünü kurarken işe yarayan yaklaşımlar ve yazılım mühendisliğinin nereye gittiği.</p>
+    <div class="m"><span>82 dk</span><span>10 bölüm</span><span>15 kart</span></div>
+  </a>
+
+  <a class="card" href="video-notlari/agent-factory-claude-code/infografik.html">
+    <span class="k">GOOGLE CLOUD · AGENT FACTORY</span>
+    <h3>claude code'un perde arkası — teknik özet</h3>
+    <p>model neyi görüyor, harness ne yapıyor, izinler hangi katmanda duruyor. lydia hallie ve yk sugi'nin anlattığı 45 teknik not.</p>
+    <div class="m"><span>61 dk</span><span>9 bölüm</span><span>10 kart</span></div>
+  </a>
+
+  <h2>nasıl üretiliyor</h2>
+  <p class="how">
+    videonun transkripti çıkarılır, türkçeye çevrilir ve konu bütünlüğüne göre bölümlere ayrılır.
+    sonra metin baştan sona okunur — <b>özet değil, çıkarım aranır.</b>
+    her çıkarım içeriğine uygun bir kart formatına oturur: şema, süreç şeridi, karşılaştırma, metrik, liste, kod.
+    kartlar tek bir html dosyasında üretilip png'ye export edilir.
+    <br><br>
+    kartlarda kural: uzun cümle yok, özet yok. <b>kart bir şeyi ya gösterir ya da göstermez.</b>
+  </p>
+
+  <footer>
+    <span>ömer faruk demiral · <a href="https://x.com/omerfrkdemiral">@omerfrkdemiral</a></span>
+    <span><a href="https://github.com/omerfarukdemiral/field-notes">github</a></span>
+  </footer>
+
+</div>
+</body>
+</html>
