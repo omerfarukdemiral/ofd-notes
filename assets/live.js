@@ -107,6 +107,24 @@
       bars[b].style.flexWrap = 'wrap'; bars[b].style.gap = '6px';
     }
 
+    // kod bloklarını yatay kaydırılabilir yap — satırlar sarılmasın, tek
+    // satırda kalıp masaüstündeki gibi okunsun (hizalama korunur)
+    var codes = card.querySelectorAll('[style*="--code"]');
+    for (var cx = 0; cx < codes.length; cx++) {
+      var box = codes[cx];
+      cache(box);
+      box.style.overflowX = 'auto';
+      box.style.webkitOverflowScrolling = 'touch';
+      box.style.padding = '18px 16px';
+      var inner = box.querySelector('.mono') || box.firstElementChild;
+      if (inner) {
+        cache(inner);
+        inner.style.whiteSpace = 'nowrap';
+        inner.style.display = 'inline-block';
+        inner.style.minWidth = 'max-content';
+      }
+    }
+
     // geniş SVG şemaları yatay kaydırılabilir çerçeveye al
     var svgs = card.querySelectorAll('svg');
     for (var s = 0; s < svgs.length; s++) {
