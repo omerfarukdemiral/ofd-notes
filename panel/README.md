@@ -4,9 +4,11 @@ FAZ 1 dokümanındaki admin gereksinimlerini karşılayan Next.js yönetim panel
 Başvuru yönetimi, webinar/atölye modülü, üyelik takibi, kupon tanımlama,
 toplu bildirim ve raporlama tek uygulamada.
 
-> Bu klasör yalnızca **paneli** içerir. Ziyaretçiye açık tanıtım sitesi
-> (hero, arşiv, SSS, başvuru formu) ayrı bir uygulama olarak planlanıyor —
-> bkz. [`YOL-HARITASI.md`](./YOL-HARITASI.md).
+> **Kapsam uyarısı:** Bu klasör FAZ 1'in yalnızca **admin paneli** yarısını
+> içerir (doküman bölüm 5, 7-admin ve 1/4'ün yönetim tarafı). Ziyaretçiye açık
+> site ve üye alanı (bölüm 2, 3, 4, 6, 7-üye ve kayıt/doğrulama akışı) henüz
+> yazılmadı. Madde madde durum:
+> [`YOL-HARITASI.md`](./YOL-HARITASI.md).
 
 ## Teknoloji
 
@@ -48,6 +50,32 @@ npm run dev
 | `npm run db:seed` | Örnek veriyi yükle (idempotent) |
 | `npm run db:reset` | Veritabanını sıfırla ve yeniden tohumla |
 | `npm run db:studio` | Prisma Studio |
+| `npm run e2e` | Uçtan uca test paketi (çalışan sunucu gerektirir) |
+
+### Uçtan uca test
+
+`e2e/suite.ts` her panel sayfasını gezer, her server action'ı gerçekten
+çalıştırır ve sonucu hem arayüzden hem doğrudan veritabanından doğrular —
+126 kontrol.
+
+```bash
+npm run build
+npm start &                 # ayrı bir terminalde
+npm run e2e                 # varsayılan http://localhost:3000
+```
+
+`E2E_BASE_URL` ile farklı bir adres, `E2E_CHROMIUM_PATH` ile hazır bir
+Chromium ikilisi verilebilir (aksi halde Playwright kendi indirdiğini kullanır).
+
+Test **veri yazar**: kupon, etkinlik, form alanı ve bildirim oluşturur, bir
+başvurunun durumunu değiştirir. Yalnızca geliştirme veritabanında çalıştırın.
+Sayımlar mutlak değil, işlem öncesi/sonrası farkı üzerinden doğrulanır; bu
+yüzden tohumlanmış veri üzerinde tekrar tekrar çalıştırılabilir.
+
+Kapsam: kimlik/yetki (8), gösterge paneli (5), başvuru listesi + filtreler +
+Excel (19), başvuru detayı ve durum akışı (16), form ayarları (15),
+etkinlikler (11), üyeler + sayfalama (18), kuponlar (11), bildirimler (9),
+raporlar (6), duyarlılık/tema/çıkış (8).
 
 ## Modüller
 

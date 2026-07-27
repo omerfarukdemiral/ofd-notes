@@ -5,6 +5,11 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { LinkButton } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
+import {
+  buildQueryString,
+  Pagination,
+  type SearchParamsRecord,
+} from "@/components/ui/pagination";
 import { EmptyRow, Table, TableWrap, Td, Th, Tr } from "@/components/ui/table";
 import type { ApplicationStatus } from "@/lib/domain/enums";
 import {
@@ -23,16 +28,7 @@ import { ApplicationFilters } from "./filters";
 
 export const metadata: Metadata = { title: "Başvurular" };
 
-type SearchParams = Record<string, string | string[] | undefined>;
-
-function buildQueryString(params: SearchParams, overrides: SearchParams = {}) {
-  const search = new URLSearchParams();
-  for (const [key, value] of Object.entries({ ...params, ...overrides })) {
-    const single = Array.isArray(value) ? value[0] : value;
-    if (single) search.set(key, single);
-  }
-  return search.toString();
-}
+type SearchParams = SearchParamsRecord;
 
 export default async function ApplicationsPage({
   searchParams,
@@ -180,31 +176,7 @@ export default async function ApplicationsPage({
           </Table>
         </TableWrap>
 
-        {pageCount > 1 ? (
-          <div className="flex items-center justify-between gap-3 border-t border-line px-5 py-3">
-            <LinkButton
-              href={`?${buildQueryString(params, { sayfa: String(page - 1) })}`}
-              variant="secondary"
-              size="sm"
-              aria-disabled={page <= 1}
-              className={page <= 1 ? "pointer-events-none opacity-50" : ""}
-            >
-              Önceki
-            </LinkButton>
-            <span className="text-[13px] text-muted">
-              Sayfa {page} / {pageCount}
-            </span>
-            <LinkButton
-              href={`?${buildQueryString(params, { sayfa: String(page + 1) })}`}
-              variant="secondary"
-              size="sm"
-              aria-disabled={page >= pageCount}
-              className={page >= pageCount ? "pointer-events-none opacity-50" : ""}
-            >
-              Sonraki
-            </LinkButton>
-          </div>
-        ) : null}
+        <Pagination page={page} pageCount={pageCount} params={params} />
       </Card>
     </>
   );

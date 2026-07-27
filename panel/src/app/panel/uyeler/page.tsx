@@ -5,6 +5,7 @@ import { Button, LinkButton } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Field, Input, Select } from "@/components/ui/field";
 import { PageHeader } from "@/components/ui/page-header";
+import { Pagination } from "@/components/ui/pagination";
 import { EmptyRow, Table, TableWrap, Td, Th, Tr } from "@/components/ui/table";
 import type { Prisma } from "@/generated/prisma/client";
 import type { UserRole } from "@/lib/domain/enums";
@@ -188,6 +189,7 @@ export default async function MembersPage({
             </tbody>
           </Table>
         </TableWrap>
+        <Pagination page={page} pageCount={pageCount} params={params} />
       </Card>
     </>
   );
