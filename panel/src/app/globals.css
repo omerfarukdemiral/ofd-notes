@@ -1,0 +1,107 @@
+@import "tailwindcss";
+
+/*
+ * Panel tasarım jetonları.
+ * Renkler tek yerden yönetiliyor; koyu tema aynı isimleri yeniden bağlıyor,
+ * bu yüzden bileşenlerde `dark:` varyantı yazmaya gerek kalmıyor.
+ */
+:root {
+  --background: #f6f7f9;
+  --surface: #ffffff;
+  --surface-muted: #f1f2f5;
+  --border: #e3e5ea;
+  --border-strong: #cdd1d9;
+
+  --foreground: #14161a;
+  --muted: #646b78;
+  --subtle: #8b919c;
+
+  --accent: #6d3bf5;
+  --accent-hover: #5b2fdb;
+  --accent-soft: #ede8ff;
+  --accent-foreground: #ffffff;
+
+  --success: #0f7a4d;
+  --success-soft: #e0f5ea;
+  --warning: #9a6200;
+  --warning-soft: #fdf0d8;
+  --danger: #b3261e;
+  --danger-soft: #fce9e7;
+  --info: #14607f;
+  --info-soft: #e0f1f8;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0d0f13;
+    --surface: #14171d;
+    --surface-muted: #1a1e26;
+    --border: #262b35;
+    --border-strong: #363d4a;
+
+    --foreground: #e8eaee;
+    --muted: #99a0ad;
+    --subtle: #6f7684;
+
+    --accent: #9d7bff;
+    --accent-hover: #ae91ff;
+    --accent-soft: #241a3f;
+    --accent-foreground: #120a26;
+
+    --success: #4ecf95;
+    --success-soft: #10261d;
+    --warning: #e5b45c;
+    --warning-soft: #2a2114;
+    --danger: #ef8b83;
+    --danger-soft: #2c1614;
+    --info: #6fc4e5;
+    --info-soft: #10242c;
+  }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-line: var(--border);
+  --color-line-strong: var(--border-strong);
+
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-subtle: var(--subtle);
+
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-foreground: var(--accent-foreground);
+
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+}
+
+* {
+  border-color: var(--border);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family:
+    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  font-feature-settings: "tnum" 1;
+}
+
+/* Tarayıcı varsayılanı takvim ikonunu koyu temada görünmez yapıyor. */
+@media (prefers-color-scheme: dark) {
+  input[type="date"]::-webkit-calendar-picker-indicator,
+  input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+    filter: invert(1) opacity(0.6);
+  }
+}

@@ -1,0 +1,421 @@
+// Müzik Hackathon — Yönetim Paneli veri modeli (FAZ 1)
+//
+// Sağlayıcı notu: geliştirme SQLite üzerinde yürüyor (sıfır kurulum).
+// SQLite enum ve scalar list desteklemediği için durum alanları String
+// olarak tutulup TypeScript tarafında union tiplerle daraltılıyor
+// (bkz. src/lib/domain/enums.ts). Bu sayede PostgreSQL'e geçiş yalnızca
+// provider + driver adapter değişikliği oluyor, alan tipi göçü gerektirmiyor.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// ---------------------------------------------------------------------------
+// Üyelik
+// ---------------------------------------------------------------------------
+
+model User {
+  id           String @id @default(cuid())
+  fullName     String
+  email        String @unique
+  phone        String @unique
+  passwordHash String
+  birthDate    DateTime
+  city         String
+  role         String @default("MEMBER") // MEMBER | ADMIN
+
+  kvkkAcceptedAt  DateTime
+  emailVerifiedAt DateTime?
+  phoneVerifiedAt DateTime?
+
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  verificationCodes   VerificationCode[]
+  contactApplications Application[]           @relation("ApplicationContact")
+  applicationMembers  ApplicationMember[]
+  eventRegistrations  EventRegistration[]
+  coupons             UserCoupon[]
+  statusChanges       ApplicationStatusLog[]
+  sentNotifications   Notification[]
+  notificationTargets NotificationRecipient[]
+  auditLogs           AuditLog[]
+
+  @@index([role])
+  @@index([city])
+}
+
+/// E-posta / SMS doğrulama kodu. Sahte ve mükerrer üyeliği engeller.
+model VerificationCode {
+  id         String    @id @default(cuid())
+  userId     String
+  channel    String // EMAIL | SMS
+  codeHash   String
+  expiresAt  DateTime
+  consumedAt DateTime?
+  attempts   Int       @default(0)
+  createdAt  DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, channel])
+}
+
+// ---------------------------------------------------------------------------
+// Başvuru formu yapılandırması
+// ---------------------------------------------------------------------------
+
+/// Tek satırlık yapılandırma tablosu (id = "singleton").
+model ApplicationSettings {
+  id       String    @id @default("singleton")
+  isOpen   Boolean   @default(false)
+  opensAt  DateTime?
+  /// Bu tarih geçtiğinde başvurular otomatik kapanır.
+  closesAt DateTime?
+
+  minMembers   Int     @default(2)
+  maxMembers   Int     @default(6)
+  demoRequired Boolean @default(true)
+
+  updatedAt DateTime @updatedAt
+}
+
+/// Admin'in panelden ekleyip çıkarabildiği form alanları.
+model ApplicationFormField {
+  id       String  @id @default(cuid())
+  key      String  @unique
+  label    String
+  helpText String?
+  /// TEXT | TEXTAREA | NUMBER | DATE | SELECT | CHECKBOX | FILE | URL
+  type     String
+  /// SELECT için seçenekler, JSON dizi olarak saklanır.
+  optionsJson String?
+  /// GROUP: grubun tamamı için bir kez. MEMBER: her üye için ayrı.
+  scope    String  @default("GROUP")
+  required Boolean @default(false)
+  /// Sistem alanları (grup adı, şehir vb.) panelden silinemez.
+  isSystem Boolean @default(false)
+  isActive Boolean @default(true)
+  order    Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([scope, order])
+}
+
+/// Müzikal roller — admin yeni rol ekleyebilir (davul, bas, vokal...).
+model MusicalRole {
+  id       String  @id @default(cuid())
+  name     String  @unique
+  order    Int     @default(0)
+  isActive Boolean @default(true)
+
+  members ApplicationMember[]
+}
+
+// ---------------------------------------------------------------------------
+// Başvurular
+// ---------------------------------------------------------------------------
+
+model Application {
+  id        String @id @default(cuid())
+  /// Panelde okunabilir referans: MH-2026-0001
+  reference String @unique
+  groupName String
+  /// INDIVIDUAL | GROUP
+  type      String @default("GROUP")
+  city      String
+  /// PENDING | APPROVED | REJECTED | FINALIST
+  status    String @default("PENDING")
+
+  /// Üye sayısına göre filtreleme/sıralama için denormalize edilir.
+  /// Prisma ilişki sayısı üzerinden `where` filtresi desteklemiyor.
+  /// Üye ekleme/çıkarma işlemleri bu alanı aynı transaction içinde günceller.
+  memberCount Int @default(0)
+
+  /// İletişimden sorumlu üye — bildirimler öncelikle buraya gider.
+  contactUserId String
+  contactUser   User   @relation("ApplicationContact", fields: [contactUserId], references: [id])
+
+  demoFileName String?
+  demoFileUrl  String?
+  demoLinkUrl  String?
+
+  /// ApplicationFormField ile tanımlanan ek alanların cevapları (JSON).
+  extraFieldsJson String?
+
+  /// Yasal kayıt: onay kutusunun işaretlendiği an.
+  kvkkAcceptedAt DateTime
+  fsekAcceptedAt DateTime
+
+  reviewNote  String?
+  submittedAt DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  members    ApplicationMember[]
+  statusLogs ApplicationStatusLog[]
+
+  @@index([status])
+  @@index([city])
+  @@index([submittedAt])
+}
+
+model ApplicationMember {
+  id            String @id @default(cuid())
+  applicationId String
+
+  /// Üye sistemde kayıtlıysa bağlanır; değilse yalnızca form bilgileri tutulur.
+  userId String?
+
+  fullName  String
+  birthDate DateTime?
+  city      String
+  email     String?
+  phone     String?
+
+  musicalRoleId String?
+  /// Rol listesinde olmayan serbest metin girdisi.
+  musicalRoleOther String?
+
+  isContact       Boolean @default(false)
+  extraFieldsJson String?
+
+  application Application  @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  user        User?        @relation(fields: [userId], references: [id])
+  musicalRole MusicalRole? @relation(fields: [musicalRoleId], references: [id])
+
+  @@index([applicationId])
+  @@index([musicalRoleId])
+}
+
+model ApplicationStatusLog {
+  id            String   @id @default(cuid())
+  applicationId String
+  fromStatus    String?
+  toStatus      String
+  note          String?
+  changedById   String?
+  createdAt     DateTime @default(now())
+
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  changedBy   User?       @relation(fields: [changedById], references: [id])
+
+  @@index([applicationId, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Webinar / Atölye
+// ---------------------------------------------------------------------------
+
+model Event {
+  id          String @id @default(cuid())
+  slug        String @unique
+  title       String
+  description String
+  /// Eğitmen / konuşmacı adı
+  instructor  String
+  /// WEBINAR | WORKSHOP
+  type        String @default("WEBINAR")
+
+  startsAt        DateTime
+  durationMinutes Int      @default(60)
+  coverImageUrl   String?
+  /// Webinar için yayın linki, atölye için fiziksel adres.
+  location        String?
+
+  /// null = kontenjan sınırsız
+  capacity        Int?
+  /// Kontenjan dolduğunda bekleme listesi açılsın mı?
+  waitlistEnabled Boolean @default(true)
+  isPublished     Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  registrations EventRegistration[]
+
+  @@index([type, startsAt])
+  @@index([isPublished])
+}
+
+model EventRegistration {
+  id      String @id @default(cuid())
+  eventId String
+  userId  String
+  /// REGISTERED | WAITLIST | CANCELLED | ATTENDED
+  status  String @default("REGISTERED")
+
+  registeredAt DateTime  @default(now())
+  cancelledAt  DateTime?
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, userId])
+  @@index([eventId, status])
+}
+
+// ---------------------------------------------------------------------------
+// Kuponlar
+// ---------------------------------------------------------------------------
+
+/// Kupon tanımı (şablon). Üyeye atanan somut kupon UserCoupon'dur.
+model Coupon {
+  id          String  @id @default(cuid())
+  title       String
+  description String?
+  /// Üretilen kodların ön eki: ZM-ATOLYE-XXXX
+  codePrefix  String
+
+  /// PERCENT | AMOUNT
+  discountType  String
+  discountValue Int
+
+  /// APPLICATION_SUBMITTED | EVENT_REGISTERED | EVENT_ATTENDED | MANUAL
+  trigger String @default("MANUAL")
+
+  validFrom  DateTime?
+  validUntil DateTime?
+  /// null = sınırsız
+  issueLimit Int?
+  isActive   Boolean   @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  issued UserCoupon[]
+
+  @@index([trigger, isActive])
+}
+
+model UserCoupon {
+  id       String @id @default(cuid())
+  couponId String
+  userId   String
+  code     String @unique
+
+  issuedAt DateTime  @default(now())
+  usedAt   DateTime?
+
+  /// Kuponu tetikleyen kayıt: APPLICATION | EVENT_REGISTRATION | MANUAL
+  sourceType String  @default("MANUAL")
+  sourceId   String?
+
+  coupon Coupon @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([couponId])
+}
+
+// ---------------------------------------------------------------------------
+// Bildirimler
+// ---------------------------------------------------------------------------
+
+model Notification {
+  id      String  @id @default(cuid())
+  /// EMAIL | SMS
+  channel String
+  subject String?
+  body    String
+
+  /// ALL_MEMBERS | APPLICATION_STATUS | EVENT_REGISTRANTS | CUSTOM
+  audience           String
+  /// Hedef kitle filtresi (durum, etkinlik id, şehir...) JSON.
+  audienceFilterJson String?
+
+  /// DRAFT | QUEUED | SENT | FAILED
+  status         String @default("DRAFT")
+  recipientCount Int    @default(0)
+
+  sentById  String?
+  sentAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  sentBy     User?                   @relation(fields: [sentById], references: [id])
+  recipients NotificationRecipient[]
+
+  @@index([status, createdAt])
+}
+
+model NotificationRecipient {
+  id             String @id @default(cuid())
+  notificationId String
+  userId         String
+  /// E-posta adresi ya da telefon numarası — gönderim anındaki hali.
+  address        String
+  /// PENDING | SENT | FAILED
+  status         String    @default("PENDING")
+  error          String?
+  sentAt         DateTime?
+
+  notification Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([notificationId, status])
+}
+
+// ---------------------------------------------------------------------------
+// İçerik (SSS / Arşiv / site ayarları)
+// ---------------------------------------------------------------------------
+
+model FaqItem {
+  id          String  @id @default(cuid())
+  question    String
+  answer      String
+  order       Int     @default(0)
+  isPublished Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ArchiveEntry {
+  id        String  @id @default(cuid())
+  year      Int
+  groupName String
+  /// 1, 2, 3 — dereceye girmediyse null
+  rank      Int?
+  songTitle String?
+  audioUrl  String?
+  photoUrl  String?
+  videoUrl  String?
+  order     Int     @default(0)
+
+  createdAt DateTime @default(now())
+
+  @@index([year, order])
+}
+
+/// Geri sayım hedefi, hero metinleri, sosyal linkler gibi serbest ayarlar.
+model SiteSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Denetim kaydı
+// ---------------------------------------------------------------------------
+
+model AuditLog {
+  id       String  @id @default(cuid())
+  actorId  String?
+  action   String
+  entity   String
+  entityId String?
+  metaJson String?
+
+  createdAt DateTime @default(now())
+
+  actor User? @relation(fields: [actorId], references: [id])
+
+  @@index([entity, createdAt])
+}

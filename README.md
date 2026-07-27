@@ -13,6 +13,7 @@ Bitmiş bir doküman değil — sürekli büyüyen bir defter.
 | Klasör | İçerik |
 |---|---|
 | [`resources/`](resources/) | Uzun teknik videoların içinden çıkarılmış infografik kartları |
+| [`panel/`](panel/) | Müzik Hackathon yönetim paneli — Next.js, Prisma, Tailwind |
 
 Yeni başlıklar eklendikçe tablo büyüyecek.
 
