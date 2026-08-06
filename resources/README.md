@@ -9,6 +9,14 @@ Uzun teknik videolar → bakınca anlaşılan infografik kartları.
 | [agent-factory-claude-code](agent-factory-claude-code/) | Google Cloud "Agent Factory" — Lydia Hallie & YK Sugi | 61 dk | 7 | 10 |
 | [lennys-podcast-boris-cherny](lennys-podcast-boris-cherny/) | Lenny's Podcast — Boris Cherny | 82 dk | 10 | 15 |
 
+## Süzgeçler
+
+Videodan çıkmayan, doğrulanmış kürasyonlar. Kart yerine tek bir web sayfası.
+
+| Süzgeç | Konu | Aday | Kalan |
+|---|---|---|---|
+| [claude-code-skills](claude-code-skills/) | X'te dolaşan Claude Code skill listesi | 22 | 17 |
+
 ## Klasör düzeni
 
 Her serinin yapısı aynı:

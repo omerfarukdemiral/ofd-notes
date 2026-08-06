@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>claude code skill süzgeci — 17 skill</title>
+<meta name="description" content="Dolaşan 22'lik skill listesi tek tek doğrulandı. 5'i elendi, kalan 17'si altı gruba ayrıldı. Repo linkleri ve güncel yıldız sayılarıyla.">
+<meta property="og:title" content="claude code skill süzgeci — 17 skill">
+<meta property="og:description" content="22'lik liste doğrulandı, 5'i elendi. Kalan 17 skill, altı grup, repo linkleri.">
+<meta property="og:type" content="article">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<script>
+// tema tercihini boyamadan önce uygula — açılışta yanıp sönme olmasın
+try {
+  var t = localStorage.getItem('ofd-theme');
+  if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+} catch (e) {}
+</script>
+<style>
+/* blueprint.dark token'ları — DEĞİŞTİRME */
+:root {
+  --bg:#0B0A12; --grid:#161426; --ink:#CDCBE0; --accent:#A78BFA;
+  --accent-fill:#151028; --line:#2C2946; --muted:#625F80; --div:#201D38; --code:#08070E;
+  --card:rgba(11,10,18,.72);
+  --shadow:none;
+  color-scheme:dark;
+}
+/* blueprint.light — aynı sistemin açık karşılığı.
+   accent koyulaşır (mor açık zeminde okunmaz), grid inceltilir, kart beyaza yaslanır. */
+:root[data-theme="light"] {
+  --bg:#F7F6FB; --grid:#E6E2F2; --ink:#191727; --accent:#6D28D9;
+  --accent-fill:#F1EBFE; --line:#D5CFE6; --muted:#5F5B78; --div:#E7E3F1; --code:#EFECF7;
+  --card:rgba(255,255,255,.74);
+  --shadow:0 1px 2px rgba(25,23,39,.04);
+  color-scheme:light;
+}
+@media (prefers-color-scheme:light) {
+  :root:not([data-theme="dark"]) {
+    --bg:#F7F6FB; --grid:#E6E2F2; --ink:#191727; --accent:#6D28D9;
+    --accent-fill:#F1EBFE; --line:#D5CFE6; --muted:#5F5B78; --div:#E7E3F1; --code:#EFECF7;
+    --card:rgba(255,255,255,.74);
+    --shadow:0 1px 2px rgba(25,23,39,.04);
+    color-scheme:light;
+  }
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+html { -webkit-text-size-adjust:100%; scroll-behavior:smooth; }
+body {
+  background:var(--bg);
+  background-image:linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size:16px 16px;
+  font-family:'Space Grotesk',sans-serif; color:var(--ink);
+  min-height:100vh; padding:0 0 72px;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap { max-width:1040px; margin:0 auto; padding:0 24px; }
+.mono { font-family:'IBM Plex Mono',monospace; }
+
+/* --- başlık --- */
+header { padding:72px 0 32px; }
+.back {
+  font-family:'IBM Plex Mono',monospace; font-size:15px; letter-spacing:1px;
+  color:var(--accent); text-decoration:none;
+}
+.back:hover { text-decoration:underline; }
+.serial {
+  display:block; margin-top:30px;
+  font-family:'IBM Plex Mono',monospace; font-size:15px; letter-spacing:4px; color:var(--accent);
+}
+h1 {
+  font-size:clamp(32px, 7vw, 58px); font-weight:700; line-height:1.06;
+  letter-spacing:-1px; margin:18px 0 18px;
+}
+.lede {
+  font-family:'IBM Plex Mono',monospace; font-size:clamp(15px, 2.2vw, 18px);
+  line-height:1.8; color:var(--muted); max-width:66ch;
+}
+.lede b { color:var(--ink); font-weight:500; }
+
+/* --- künye şeridi --- */
+.tally {
+  display:flex; flex-wrap:wrap; gap:0; margin:32px 0 0;
+  border:1px solid var(--line); border-radius:8px; overflow:hidden;
+}
+.tally div {
+  flex:1 1 25%; min-width:120px; padding:18px 20px;
+  border-right:1px solid var(--div);
+}
+.tally div:last-child { border-right:0; }
+.tally .n {
+  font-family:'IBM Plex Mono',monospace; font-size:26px; font-weight:500; color:var(--accent);
+  line-height:1;
+}
+.tally .l {
+  font-family:'IBM Plex Mono',monospace; font-size:13px; color:var(--muted);
+  letter-spacing:1px; margin-top:8px; display:block;
+}
+
+/* --- arama + grup çipleri (tam genişlik, yapışkan) --- */
+.tools {
+  position:sticky; top:0; z-index:5; margin-top:36px;
+  padding:12px 0 14px; background:var(--bg); border-bottom:1px solid var(--div);
+}
+.row { display:flex; gap:10px; align-items:stretch; }
+#q {
+  flex:1; min-width:0; background:var(--code); color:var(--ink);
+  border:1px solid var(--line); border-radius:6px; padding:14px 16px;
+  font-family:'IBM Plex Mono',monospace; font-size:16px; outline:none;
+}
+#theme {
+  flex:none; background:transparent; color:var(--muted); cursor:pointer;
+  border:1px solid var(--line); border-radius:6px; padding:0 16px;
+  font-family:'IBM Plex Mono',monospace; font-size:14px; letter-spacing:1px;
+  transition:color .15s, border-color .15s;
+}
+#theme:hover, #theme:focus-visible { color:var(--accent); border-color:var(--accent); outline:none; }
+#q::placeholder { color:var(--muted); }
+#q:focus { border-color:var(--accent); }
+.chips { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
+.chips::-webkit-scrollbar { display:none; }
+.chips a {
+  font-family:'IBM Plex Mono',monospace; font-size:13px; letter-spacing:1px;
+  color:var(--muted); text-decoration:none; border:1px solid var(--line);
+  border-radius:999px; padding:7px 13px; white-space:nowrap;
+  transition:color .15s, border-color .15s;
+}
+.chips a:hover { color:var(--accent); border-color:var(--accent); }
+.empty {
+  display:none; font-family:'IBM Plex Mono',monospace; font-size:16px;
+  color:var(--muted); padding:40px 0;
+}
+
+/* --- grup başlığı --- */
+.group { margin-top:52px; scroll-margin-top:126px; }
+.group > h2 {
+  font-family:'IBM Plex Mono',monospace; font-size:15px; letter-spacing:3px;
+  color:var(--muted); text-transform:uppercase;
+  display:flex; align-items:center; gap:14px;
+}
+.group > h2::after { content:""; flex:1; height:1px; background:var(--div); }
+.group > .gnote {
+  font-family:'IBM Plex Mono',monospace; font-size:15px; color:var(--muted);
+  margin-top:10px;
+}
+
+/* --- kartlar --- */
+.cards {
+  display:grid; grid-template-columns:repeat(auto-fill, minmax(320px, 1fr));
+  gap:16px; margin-top:20px;
+}
+a.card {
+  display:flex; flex-direction:column; text-decoration:none; color:inherit;
+  border:1px solid var(--line); border-radius:8px; padding:24px 24px 20px;
+  background:var(--card); box-shadow:var(--shadow);
+  transition:border-color .15s, background .15s, transform .15s;
+}
+a.card:hover, a.card:focus-visible {
+  border-color:var(--accent); background:var(--accent-fill); transform:translateY(-2px);
+  outline:none;
+}
+.card .top { display:flex; align-items:baseline; justify-content:space-between; gap:14px; }
+.card h3 { font-size:25px; font-weight:600; line-height:1.15; letter-spacing:-.3px; }
+.card .stars {
+  font-family:'IBM Plex Mono',monospace; font-size:17px; font-weight:500;
+  color:var(--accent); white-space:nowrap;
+}
+.card .stars::before { content:"★ "; font-size:13px; }
+.card p {
+  font-family:'IBM Plex Mono',monospace; font-size:15px; line-height:1.7;
+  color:var(--muted); margin-top:12px;
+}
+.card .who {
+  font-family:'IBM Plex Mono',monospace; font-size:14px; line-height:1.6;
+  color:var(--ink); margin-top:12px;
+  border-left:2px solid var(--accent); padding-left:12px;
+}
+.card .repo {
+  font-family:'IBM Plex Mono',monospace; font-size:13px; color:var(--muted);
+  margin-top:auto; padding-top:16px; border-top:1px solid var(--div);
+  display:flex; justify-content:space-between; align-items:center; gap:10px;
+  word-break:break-all;
+}
+a.card:hover .repo { color:var(--accent); }
+.card .repo .arrow { flex:none; color:var(--line); }
+a.card:hover .repo .arrow { color:var(--accent); }
+
+/* --- elenenler --- */
+.cut { margin-top:60px; padding-top:8px; }
+.cut ul { list-style:none; margin-top:18px; }
+.cut li {
+  border:1px dashed var(--line); border-radius:8px; padding:18px 20px;
+  margin-bottom:10px; display:flex; gap:16px; align-items:flex-start;
+}
+.cut li .name {
+  font-family:'IBM Plex Mono',monospace; font-size:16px; color:var(--ink);
+  flex:none; min-width:170px;
+}
+.cut li .why {
+  font-family:'IBM Plex Mono',monospace; font-size:15px; line-height:1.65; color:var(--muted);
+}
+
+/* --- yöntem + dipnot --- */
+.how {
+  font-family:'IBM Plex Mono',monospace; font-size:15px; line-height:1.85;
+  color:var(--muted); margin-top:20px; max-width:72ch;
+}
+.how b { color:var(--ink); font-weight:500; }
+.how a { color:var(--accent); text-decoration:none; border-bottom:1px solid var(--line); }
+.how a:hover { border-color:var(--accent); }
+.src {
+  font-family:'IBM Plex Mono',monospace; font-size:13px; color:var(--muted);
+  margin-top:26px; padding:14px 16px; border-left:2px solid var(--line);
+}
+
+footer {
+  margin-top:56px; padding-top:22px; border-top:1px solid var(--div);
+  font-family:'IBM Plex Mono',monospace; font-size:14px; color:var(--muted);
+  display:flex; justify-content:space-between; gap:14px; flex-wrap:wrap;
+}
+footer a { color:var(--accent); text-decoration:none; }
+
+@media (max-width:720px) {
+  body { padding:0 0 56px; }
+  .wrap { padding:0 16px; }
+  header { padding:44px 0 24px; }
+  /* çipler tek satırda yatay kayar — yapışkan şerit alçak kalsın */
+  .chips {
+    flex-wrap:nowrap; overflow-x:auto; scrollbar-width:none;
+    margin:12px -16px 0; padding:0 16px 2px;
+    -webkit-overflow-scrolling:touch; overscroll-behavior-x:contain;
+  }
+  .cards { grid-template-columns:1fr; gap:12px; }
+  .card h3 { font-size:22px; }
+  a.card { padding:20px; }
+  .tally div { flex:1 1 50%; min-width:0; padding:14px 16px; }
+  .tally div:nth-child(2) { border-right:0; }
+  .tally div:nth-child(-n+2) { border-bottom:1px solid var(--div); }
+  .tally .n { font-size:22px; }
+  .group { margin-top:40px; scroll-margin-top:134px; }
+  .cut li { flex-direction:column; gap:8px; }
+  .cut li .name { min-width:0; }
+  footer { flex-direction:column; gap:8px; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <a class="back" href="../../">&larr; ofd-notes</a>
+    <span class="serial">SÜZGEÇ / SKILLS</span>
+    <h1>claude code skill süzgeci</h1>
+    <p class="lede">
+      farkı yaratan model değil, kurduğun skill seti. yanlış skill context'i şişirir, usage'ı boşa yakar;
+      doğru skill aynı işi yarı tokenla bitirir.
+      <b>dolaşan 22'lik listeyi baştan sona kontrol ettim.</b>
+      5'i ya skill değildi ya repo'su doğrulanmıyordu. kalan 17'si burada, altı gruba ayrılmış halde.
+    </p>
+
+    <div class="tally">
+      <div><span class="n">22</span><span class="l">GELEN LİSTE</span></div>
+      <div><span class="n">5</span><span class="l">ELENEN</span></div>
+      <div><span class="n">17</span><span class="l">KALAN</span></div>
+      <div><span class="n">6</span><span class="l">GRUP</span></div>
+    </div>
+  </header>
+</div>
+
+<div class="tools">
+    <div class="wrap">
+    <div class="row">
+      <input id="q" type="search" placeholder="ara — isim, iş, repo" autocomplete="off" spellcheck="false">
+      <button id="theme" type="button" aria-label="temayı değiştir">tema</button>
+    </div>
+    <nav class="chips">
+      <a href="#calisma-duzeni">çalışma düzeni</a>
+      <a href="#tasarim">tasarım</a>
+      <a href="#video">video</a>
+      <a href="#context">context ve araştırma</a>
+      <a href="#altyapi">altyapı</a>
+      <a href="#yazi">yazı</a>
+      <a href="#elenenler">elenenler</a>
+    </nav>
+    </div>
+</div>
+
+<div class="wrap">
+
+  <p class="empty" id="empty">eşleşen skill yok. aramayı kısalt.</p>
+
+  <!-- 01 · ÇALIŞMA DÜZENİ -->
+  <section class="group" id="calisma-duzeni">
+    <h2>01 · çalışma düzeni</h2>
+    <p class="gnote">// nasıl çalıştığını değiştirenler</p>
+    <div class="cards">
+
+      <a class="card" href="https://github.com/obra/superpowers" target="_blank" rel="noopener">
+        <div class="top"><h3>superpowers</h3><span class="stars">268k</span></div>
+        <p>plan, tdd ve debug döngüsünü tek metodolojiye bağlar.</p>
+        <div class="who">ciddi proje yürüten için</div>
+        <div class="repo"><span>obra/superpowers</span><span class="arrow">&rarr;</span></div>
+      </a>
+
+      <a class="card" href="https://github.com/garrytan/gstack" target="_blank" rel="noopener">
+        <div class="top"><h3>gstack</h3><span class="stars">127k</span></div>
+        <p>garry tan'ın kendi setup'ı. ceo, designer, release manager rolleri slash command olarak geliyor.</p>
+        <div class="who">solo builder için</div>
+        <div class="repo"><span>garrytan/gstack</span><span class="arrow">&rarr;</span></div>
+      </a>
+
+      <a class="card" href="https://github.com/DietrichGebert/ponytail" target="_blank" rel="noopener">
+        <div class="top"><h3>ponytail</h3><span class="stars">97k</span></div>
+        <p>kod yazmadan önce "bu gerçekten gerekli mi" merdivenini indiriyor.</p>
+        <div class="who">over-engineering'den şikayetçi olan için</div>
+        <div class="repo"><span>DietrichGebert/ponytail</span><span class="arrow">&rarr;</span></div>
+      </a>
+
+      <a class="card" href="https://github.com/JuliusBrussee/caveman" target="_blank" rel="noopener">
+        <div class="top"><h3>caveman</h3><span class="stars">96k</span></div>
+        <p>cevaptaki dolguyu kesiyor, output token'ı ciddi düşürüyor.</p>
+        <div class="who">uzun session'larda usage'ı yöneten için</div>
+        <div class="repo"><span>JuliusBrussee/caveman</span><span class="arrow">&rarr;</span></div>
+      </a>
+
+    </div>
+  </section>
+
+  <!-- 02 · TASARIM -->
+  <section class="group" id="tasarim">
+    <h2>02 · tasarım</h2>
+    <p class="gnote">// arayüzün nasıl göründüğünü değiştirenler</p>
+    <div class="cards">
+
+      <a class="card" href="https://github.com/nextlevelbuilder/ui-ux-pro-max-skill" target="_blank" rel="noopener">
+        <div class="top"><h3>ui-ux-pro-max</h3><span class="stars">114k</span></div>
+        <p>sorgulanabilir tasarım veritabanı: palet, tipografi, chart, ux kuralı.</p>
+        <div class="who">tasarımcısız çalışan developer için</div>
+        <div class="repo"><span>nextlevelbuilder/ui-ux-pro-max-skill</span><span class="arrow">&rarr;</span></div>
+      </a>
+
+      <a class="card" href="https://github.com/Leonxlnx/taste-skill" target="_blank" rel="noopener">
+        <div class="top"><h3>taste-skill</h3><span class="stars">73k</span></div>
+        <p>görsel yönü parametreyle ayarlıyorsun, anti-slop odaklı.</p>
+        <div class="who">landing page ve portfolyo çıkaran için</div>
+        <div class="repo"><span>Leonxlnx/taste-skill</span><span class="arrow">&rarr;</span></div>
+      </a>
+
+      <a class="card" href="https://github.com/pbakaus/impeccable" target="_blank" rel="noopener">
+        <div class="top"><h3>impeccable</h3><span class="stars">56k</span></div>
+        <p>polish, audit, critique gibi 20+ komutla arayüzü tek kelimeyle yönlendiriyorsun.</p>
+        <div class="who">frontend'i cila aşamasında olan için</div>
+        <div class="repo"><span>pbakaus/impeccable</span><span class="arrow">&rarr;</span></div>
+      </a>
+
+      <a class="card" href="https://github.com/emilkowalski/skills" target="_blank" rel="noopener">
+        <div class="top"><h3>emil</h3><span class="stars">26k</span></div>
+        <p>arayüz animasyonlarının craft tarafı.</p>
+        <div class="who">micro-interaction'a önem veren için</div>
+        <div class="repo"><span>emilkowalski/skills</span><span class="arrow">&rarr;</span></div>
+      </a>
+
+      <a class="card" href="https://github.com/greensock/gsap-skills" target="_blank" rel="noopener">
+        <div class="top"><h3>gsap</h3><span class="stars">13k</span></div>
+        <p>greensock'un resmi skill seti.</p>
+        <div class="who">scroll ve timeline animasyonu yazan için</div>
+        <div class="repo"><span>greensock/gsap-skills</span><span class="arrow">&rarr;</span></div>
+      </a>
+
+    </div>
+  </section>
+
+  <!-- 03 · VİDEO -->
+  <section class="group" id="video">
+    <h2>03 · video</h2>
+    <p class="gnote">// editör açmadan çıktı alanlar</p>
+    <div class="cards">
+
+      <a class="card" href="https://github.com/heygen-com/hyperframes" target="_blank" rel="noopener">
+        <div class="top"><h3>hyperframes</h3><span class="stars">40k</span></div>
+        <p>html yazıyorsun, deterministik mp4 çıkıyor.</p>
+        <div class="who">timeline editörü açmadan promo video üreten için</div>
+        <div class="repo"><span>heygen-com/hyperframes</span><span class="arrow">&rarr;</span></div>
+      </a>
+
+    </div>
+  </section>
+
+  <!-- 04 · CONTEXT VE ARAŞTIRMA -->
+  <section class="group" id="context">
+    <h2>04 · context ve araştırma</h2>
+    <p class="gnote">// modelin neyi gördüğünü değiştirenler</p>
+    <div class="cards">
+
+      <a class="card" href="https://github.com/Graphify-Labs/graphify" target="_blank" rel="noopener">
+        <div class="top"><h3>graphify</h3><span class="stars">103k</span></div>
+        <p>kod, doküman ve şemayı sorgulanabilir knowledge graph'e çeviriyor.</p>
+        <div class="who">büyük repo'da token yakan için</div>
+        <div class="repo"><span>Graphify-Labs/graphify</span><span class="arrow">&rarr;</span></div>
+      </a>
+
+      <a class="card" href="https://github.com/mvanhorn/last30days-skill" target="_blank" rel="noopener">
+        <div class="top"><h3>last30days</h3><span class="stars">57k</span></div>
+        <p>bir konuda reddit ve x'te son 30 günde ne konuşulduğunu toplayıp prompt'a çeviriyor.</p>
+        <div class="who">trend takibi yapan için</div>
+        <div class="repo"><span>mvanhorn/last30days-skill</span><span class="arrow">&rarr;</span></div>
+      </a>
+
+      <a class="card" href="https://github.com/vercel-labs/agent-browser" target="_blank" rel="noopener">
+        <div class="top"><h3>agent-browser</h3><span class="stars">40k</span></div>
+        <p>claude'a gerçek tarayıcı veriyor: tıklar, form doldurur, screenshot alır.</p>
+        <div class="who">qa ve e2e test yapan için</div>
+        <div class="repo"><span>vercel-labs/agent-browser</span><span class="arrow">&rarr;</span></div>
+      </a>
+
+    </div>
+  </section>
+
+  <!-- 05 · ALTYAPI -->
+  <section class="group" id="altyapi">
+    <h2>05 · altyapı</h2>
+    <p class="gnote">// skill'in kendisiyle uğraşanlar</p>
+    <div class="cards">
+
+      <a class="card" href="https://github.com/anthropics/skills" target="_blank" rel="noopener">
+        <div class="top"><h3>skill-creator</h3><span class="stars">167k</span></div>
+        <p>anthropic'in resmi repo'su, kendi skill'ini yazmayı öğretiyor.</p>
+        <div class="who">kendi iş akışını kodlayan için</div>
+        <div class="repo"><span>anthropics/skills</span><span class="arrow">&rarr;</span></div>
+      </a>
+
+      <a class="card" href="https://github.com/vercel-labs/skills" target="_blank" rel="noopener">
+        <div class="top"><h3>find-skills</h3><span class="stars">28k</span></div>
+        <p>yeni skill yazmadan önce ekosistemde aynısı var mı diye tarıyor.</p>
+        <div class="who">boşuna uğraşmak istemeyen için</div>
+        <div class="repo"><span>vercel-labs/skills</span><span class="arrow">&rarr;</span></div>
+      </a>
+
+      <a class="card" href="https://github.com/jarrodwatts/claude-hud" target="_blank" rel="noopener">
+        <div class="top"><h3>claude-hud</h3><span class="stars">27k</span></div>
+        <p>statusline'da context yüzdesi, çalışan tool ve subagent'lar görünüyor.</p>
+        <div class="who">context doluşunu canlı izleyen için</div>
+        <div class="repo"><span>jarrodwatts/claude-hud</span><span class="arrow">&rarr;</span></div>
+      </a>
+
+    </div>
+  </section>
+
+  <!-- 06 · YAZI -->
+  <section class="group" id="yazi">
+    <h2>06 · yazı</h2>
+    <p class="gnote">// metnin nasıl okunduğunu değiştirenler</p>
+    <div class="cards">
+
+      <a class="card" href="https://github.com/blader/humanizer" target="_blank" rel="noopener">
+        <div class="top"><h3>humanizer</h3><span class="stars">34k</span></div>
+        <p>metinden ai izlerini siliyor.</p>
+        <div class="who">blog ve newsletter yazan için</div>
+        <div class="repo"><span>blader/humanizer</span><span class="arrow">&rarr;</span></div>
+      </a>
+
+    </div>
+  </section>
+
+  <!-- ELENENLER -->
+  <section class="group cut" id="elenenler">
+    <h2>süzgeçte kalanlar · 5</h2>
+    <p class="gnote">// kesikli çerçeve = listeye girmedi</p>
+    <ul>
+      <li>
+        <span class="name">remotion</span>
+        <span class="why">skill değil, react video framework'ü. listeye yanlış girmiş.</span>
+      </li>
+      <li>
+        <span class="name">codex</span>
+        <span class="why">kanonik bir repo'su yok, dağınık forklar.</span>
+      </li>
+      <li>
+        <span class="name">marketingskills</span>
+        <span class="why">doğrulanabilir tek bir kaynak repo bulamadım.</span>
+      </li>
+      <li>
+        <span class="name">i-have-adhd</span>
+        <span class="why">caveman ve ponytail ile birebir örtüşüyor, en düşük yıldız.</span>
+      </li>
+      <li>
+        <span class="name">social-media-skills</span>
+        <span class="why">postu yazanın kendi reklamı.</span>
+      </li>
+    </ul>
+  </section>
+
+  <!-- YÖNTEM -->
+  <section class="group" id="yontem">
+    <h2>yöntem</h2>
+    <p class="how">
+      orijinal postta linkler <b>lnkd.in</b> kısaltmasıydı — hiçbiri doğrudan repo'ya gitmiyordu.
+      22 maddenin her birinin gerçek repo'sunu tek tek buldum, sahibini ve içeriğini kontrol ettim.
+      <br><br>
+      eleme kriteri üç tane: <b>skill mi</b> (framework ya da kütüphane değil),
+      <b>kanonik repo'su var mı</b> (dağınık forklar değil, tek kaynak),
+      <b>listede zaten karşılığı var mı</b> (aynı işi yapan iki skill'den biri gider).
+      <br><br>
+      yıldız sayıları listedeki sırayı belirlemiyor — gruplar işe göre ayrıldı, sayı sadece
+      <b>ne kadar denenmiş olduğunun</b> göstergesi. 17'sini birden kullanmıyorum, kimse kullanmıyor.
+      liste seçmek için var.
+    </p>
+    <p class="src">
+      veri: github api, 6 ağustos 2026. yıldız sayıları en yakın bine yuvarlandı —
+      orijinal postta yazanlardan biraz yüksek, o liste eskimiş.
+    </p>
+  </section>
+
+  <footer>
+    <span>ömer faruk demiral · <a href="https://x.com/omerfrkdemiral">@omerfrkdemiral</a></span>
+    <span><a href="https://github.com/omerfarukdemiral/ofd-notes">github</a></span>
+  </footer>
+
+</div>
+
+<script>
+// --- tema düğmesi: sistem tercihi varsayılan, seçim hatırlanır ---
+(function () {
+  var root = document.documentElement;
+  var btn = document.getElementById('theme');
+  var sys = window.matchMedia('(prefers-color-scheme: light)');
+
+  function aktif() {
+    var s = root.getAttribute('data-theme');
+    return s || (sys.matches ? 'light' : 'dark');
+  }
+  function yaz() {
+    btn.textContent = aktif() === 'light' ? 'koyu' : 'açık';
+  }
+  btn.addEventListener('click', function () {
+    var yeni = aktif() === 'light' ? 'dark' : 'light';
+    root.setAttribute('data-theme', yeni);
+    try { localStorage.setItem('ofd-theme', yeni); } catch (e) {}
+    yaz();
+  });
+  // seçim yapılmadıysa sistem temasını takip etmeye devam et
+  sys.addEventListener('change', function () { if (!root.getAttribute('data-theme')) yaz(); });
+  yaz();
+})();
+
+(function () {
+  var q = document.getElementById('q');
+  var empty = document.getElementById('empty');
+  var cards = Array.prototype.slice.call(document.querySelectorAll('a.card'));
+  var groups = Array.prototype.slice.call(document.querySelectorAll('.group'));
+
+  // aranabilir metni bir kez hazırla
+  cards.forEach(function (c) { c.__t = c.textContent.toLowerCase().replace(/\s+/g, ' '); });
+
+  function normalize(s) {
+    return s.toLowerCase()
+      .replace(/ı/g, 'i').replace(/İ/g, 'i')
+      .replace(/ş/g, 's').replace(/ğ/g, 'g')
+      .replace(/ü/g, 'u').replace(/ö/g, 'o').replace(/ç/g, 'c');
+  }
+
+  function filter() {
+    var term = normalize(q.value.trim());
+    var hits = 0;
+
+    cards.forEach(function (c) {
+      var on = !term || normalize(c.__t).indexOf(term) !== -1;
+      c.style.display = on ? '' : 'none';
+      if (on) hits++;
+    });
+
+    // içinde görünen kart kalmayan grubu gizle; elenenler ve yöntem aramada kapanır
+    groups.forEach(function (g) {
+      var inGroup = g.querySelectorAll('a.card');
+      if (!inGroup.length) { g.style.display = term ? 'none' : ''; return; }
+      var visible = Array.prototype.some.call(inGroup, function (c) { return c.style.display !== 'none'; });
+      g.style.display = visible ? '' : 'none';
+    });
+
+    empty.style.display = hits === 0 ? 'block' : 'none';
+  }
+
+  q.addEventListener('input', filter);
+  q.addEventListener('search', filter);
+  // esc ile temizle
+  q.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') { q.value = ''; filter(); }
+  });
+})();
+</script>
+</body>
+</html>
