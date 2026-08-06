@@ -15,7 +15,7 @@ Videodan çıkmayan, doğrulanmış kürasyonlar. Kart yerine tek bir web sayfas
 
 | Süzgeç | Konu | Aday | Kalan |
 |---|---|---|---|
-| [claude-code-skills](claude-code-skills/) | X'te dolaşan Claude Code skill listesi | 22 | 17 |
+| [claude-code-skills](claude-code-skills/) — Skill Havuzu | X'te dolaşan Claude Code skill listesi | 22 | 17 |
 
 ## Klasör düzeni
 

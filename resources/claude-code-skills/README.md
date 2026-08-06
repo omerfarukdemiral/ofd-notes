@@ -1,4 +1,6 @@
-# claude-code-skills
+# Skill Havuzu
+
+Claude Code'da farkı yaratan model değil, kurduğun skill seti. Yanlış skill context'i şişirir, usage'ı boşa yakar. Doğru skill aynı işi yarı tokenla bitirir.
 
 X'te dolaşan 22'lik Claude Code skill listesi tek tek doğrulandı. 5'i elendi, kalan 17'si altı gruba ayrıldı.
 
