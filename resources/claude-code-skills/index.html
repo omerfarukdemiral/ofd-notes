@@ -9,11 +9,39 @@
 <meta property="og:description" content="22'lik liste doğrulandı, 5'i elendi. Kalan 17 skill, altı grup, repo linkleri.">
 <meta property="og:type" content="article">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<script>
+// tema tercihini boyamadan önce uygula — açılışta yanıp sönme olmasın
+try {
+  var t = localStorage.getItem('ofd-theme');
+  if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+} catch (e) {}
+</script>
 <style>
 /* blueprint.dark token'ları — DEĞİŞTİRME */
 :root {
   --bg:#0B0A12; --grid:#161426; --ink:#CDCBE0; --accent:#A78BFA;
   --accent-fill:#151028; --line:#2C2946; --muted:#625F80; --div:#201D38; --code:#08070E;
+  --card:rgba(11,10,18,.72);
+  --shadow:none;
+  color-scheme:dark;
+}
+/* blueprint.light — aynı sistemin açık karşılığı.
+   accent koyulaşır (mor açık zeminde okunmaz), grid inceltilir, kart beyaza yaslanır. */
+:root[data-theme="light"] {
+  --bg:#F7F6FB; --grid:#E6E2F2; --ink:#191727; --accent:#6D28D9;
+  --accent-fill:#F1EBFE; --line:#D5CFE6; --muted:#5F5B78; --div:#E7E3F1; --code:#EFECF7;
+  --card:rgba(255,255,255,.74);
+  --shadow:0 1px 2px rgba(25,23,39,.04);
+  color-scheme:light;
+}
+@media (prefers-color-scheme:light) {
+  :root:not([data-theme="dark"]) {
+    --bg:#F7F6FB; --grid:#E6E2F2; --ink:#191727; --accent:#6D28D9;
+    --accent-fill:#F1EBFE; --line:#D5CFE6; --muted:#5F5B78; --div:#E7E3F1; --code:#EFECF7;
+    --card:rgba(255,255,255,.74);
+    --shadow:0 1px 2px rgba(25,23,39,.04);
+    color-scheme:light;
+  }
 }
 * { margin:0; padding:0; box-sizing:border-box; }
 html { -webkit-text-size-adjust:100%; scroll-behavior:smooth; }
@@ -73,11 +101,19 @@ h1 {
   position:sticky; top:0; z-index:5; margin-top:36px;
   padding:12px 0 14px; background:var(--bg); border-bottom:1px solid var(--div);
 }
+.row { display:flex; gap:10px; align-items:stretch; }
 #q {
-  width:100%; background:var(--code); color:var(--ink);
+  flex:1; min-width:0; background:var(--code); color:var(--ink);
   border:1px solid var(--line); border-radius:6px; padding:14px 16px;
   font-family:'IBM Plex Mono',monospace; font-size:16px; outline:none;
 }
+#theme {
+  flex:none; background:transparent; color:var(--muted); cursor:pointer;
+  border:1px solid var(--line); border-radius:6px; padding:0 16px;
+  font-family:'IBM Plex Mono',monospace; font-size:14px; letter-spacing:1px;
+  transition:color .15s, border-color .15s;
+}
+#theme:hover, #theme:focus-visible { color:var(--accent); border-color:var(--accent); outline:none; }
 #q::placeholder { color:var(--muted); }
 #q:focus { border-color:var(--accent); }
 .chips { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
@@ -115,7 +151,7 @@ h1 {
 a.card {
   display:flex; flex-direction:column; text-decoration:none; color:inherit;
   border:1px solid var(--line); border-radius:8px; padding:24px 24px 20px;
-  background:rgba(11,10,18,.72);
+  background:var(--card); box-shadow:var(--shadow);
   transition:border-color .15s, background .15s, transform .15s;
 }
 a.card:hover, a.card:focus-visible {
@@ -232,7 +268,10 @@ footer a { color:var(--accent); text-decoration:none; }
 
 <div class="tools">
     <div class="wrap">
-    <input id="q" type="search" placeholder="ara — isim, iş, repo" autocomplete="off" spellcheck="false">
+    <div class="row">
+      <input id="q" type="search" placeholder="ara — isim, iş, repo" autocomplete="off" spellcheck="false">
+      <button id="theme" type="button" aria-label="temayı değiştir">tema</button>
+    </div>
     <nav class="chips">
       <a href="#calisma-duzeni">çalışma düzeni</a>
       <a href="#tasarim">tasarım</a>
@@ -479,6 +518,30 @@ footer a { color:var(--accent); text-decoration:none; }
 </div>
 
 <script>
+// --- tema düğmesi: sistem tercihi varsayılan, seçim hatırlanır ---
+(function () {
+  var root = document.documentElement;
+  var btn = document.getElementById('theme');
+  var sys = window.matchMedia('(prefers-color-scheme: light)');
+
+  function aktif() {
+    var s = root.getAttribute('data-theme');
+    return s || (sys.matches ? 'light' : 'dark');
+  }
+  function yaz() {
+    btn.textContent = aktif() === 'light' ? 'koyu' : 'açık';
+  }
+  btn.addEventListener('click', function () {
+    var yeni = aktif() === 'light' ? 'dark' : 'light';
+    root.setAttribute('data-theme', yeni);
+    try { localStorage.setItem('ofd-theme', yeni); } catch (e) {}
+    yaz();
+  });
+  // seçim yapılmadıysa sistem temasını takip etmeye devam et
+  sys.addEventListener('change', function () { if (!root.getAttribute('data-theme')) yaz(); });
+  yaz();
+})();
+
 (function () {
   var q = document.getElementById('q');
   var empty = document.getElementById('empty');
