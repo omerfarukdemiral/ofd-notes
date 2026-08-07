@@ -164,33 +164,7 @@ a.card:hover .repo { color:var(--accent); }
 .card .repo .arrow { flex:none; color:var(--line); }
 a.card:hover .repo .arrow { color:var(--accent); }
 
-/* --- elenenler --- */
-.cut { margin-top:60px; padding-top:8px; }
-.cut ul { list-style:none; margin-top:18px; }
-.cut li {
-  border:1px dashed var(--line); border-radius:8px; padding:18px 20px;
-  margin-bottom:10px; display:flex; gap:16px; align-items:flex-start;
-}
-.cut li .name {
-  font-family:'IBM Plex Mono',monospace; font-size:16px; color:var(--ink);
-  flex:none; min-width:170px;
-}
-.cut li .why {
-  font-family:'IBM Plex Mono',monospace; font-size:15px; line-height:1.65; color:var(--muted);
-}
 
-/* --- yöntem + dipnot --- */
-.how {
-  font-family:'IBM Plex Mono',monospace; font-size:15px; line-height:1.85;
-  color:var(--muted); margin-top:20px; max-width:72ch;
-}
-.how b { color:var(--ink); font-weight:500; }
-.how a { color:var(--accent); text-decoration:none; border-bottom:1px solid var(--line); }
-.how a:hover { border-color:var(--accent); }
-.src {
-  font-family:'IBM Plex Mono',monospace; font-size:13px; color:var(--muted);
-  margin-top:26px; padding:14px 16px; border-left:2px solid var(--line);
-}
 
 footer {
   margin-top:56px; padding-top:22px; border-top:1px solid var(--div);
@@ -213,8 +187,6 @@ footer a { color:var(--accent); text-decoration:none; }
   .card h3 { font-size:22px; }
   a.card { padding:20px; }
   .group { margin-top:40px; scroll-margin-top:134px; }
-  .cut li { flex-direction:column; gap:8px; }
-  .cut li .name { min-width:0; }
   footer { flex-direction:column; gap:8px; }
 }
 </style>
@@ -243,7 +215,6 @@ footer a { color:var(--accent); text-decoration:none; }
       <a href="#context">context ve araştırma</a>
       <a href="#altyapi">altyapı</a>
       <a href="#yazi">yazı</a>
-      <a href="#elenenler">elenenler</a>
     </nav>
     </div>
 </div>
@@ -425,57 +396,9 @@ footer a { color:var(--accent); text-decoration:none; }
     </div>
   </section>
 
-  <!-- ELENENLER -->
-  <section class="group cut" id="elenenler">
-    <h2>süzgeçte kalanlar · 5</h2>
-    <p class="gnote">// kesikli çerçeve = listeye girmedi</p>
-    <ul>
-      <li>
-        <span class="name">remotion</span>
-        <span class="why">skill değil, react video framework'ü. listeye yanlış girmiş.</span>
-      </li>
-      <li>
-        <span class="name">codex</span>
-        <span class="why">kanonik bir repo'su yok, dağınık forklar.</span>
-      </li>
-      <li>
-        <span class="name">marketingskills</span>
-        <span class="why">doğrulanabilir tek bir kaynak repo bulamadım.</span>
-      </li>
-      <li>
-        <span class="name">i-have-adhd</span>
-        <span class="why">caveman ve ponytail ile birebir örtüşüyor, en düşük yıldız.</span>
-      </li>
-      <li>
-        <span class="name">social-media-skills</span>
-        <span class="why">postu yazanın kendi reklamı.</span>
-      </li>
-    </ul>
-  </section>
-
-  <!-- YÖNTEM -->
-  <section class="group" id="yontem">
-    <h2>yöntem</h2>
-    <p class="how">
-      orijinal postta linkler <b>lnkd.in</b> kısaltmasıydı — hiçbiri doğrudan repo'ya gitmiyordu.
-      22 maddenin her birinin gerçek repo'sunu tek tek buldum, sahibini ve içeriğini kontrol ettim.
-      <br><br>
-      eleme kriteri üç tane: <b>skill mi</b> (framework ya da kütüphane değil),
-      <b>kanonik repo'su var mı</b> (dağınık forklar değil, tek kaynak),
-      <b>listede zaten karşılığı var mı</b> (aynı işi yapan iki skill'den biri gider).
-      <br><br>
-      yıldız sayıları listedeki sırayı belirlemiyor — gruplar işe göre ayrıldı, sayı sadece
-      <b>ne kadar denenmiş olduğunun</b> göstergesi. 17'sini birden kullanmıyorum, kimse kullanmıyor.
-      liste seçmek için var.
-    </p>
-    <p class="src">
-      veri: github api, 6 ağustos 2026. yıldız sayıları en yakın bine yuvarlandı —
-      orijinal postta yazanlardan biraz yüksek, o liste eskimiş.
-    </p>
-  </section>
-
   <footer>
     <span>ömer faruk demiral · <a href="https://x.com/omerfrkdemiral">@omerfrkdemiral</a></span>
+    <span>yıldızlar: github api, 6 ağustos 2026</span>
     <span><a href="https://github.com/omerfarukdemiral/ofd-notes">github</a></span>
   </footer>
 
@@ -532,10 +455,9 @@ footer a { color:var(--accent); text-decoration:none; }
       if (on) hits++;
     });
 
-    // içinde görünen kart kalmayan grubu gizle; elenenler ve yöntem aramada kapanır
+    // içinde görünen kart kalmayan grubu gizle
     groups.forEach(function (g) {
       var inGroup = g.querySelectorAll('a.card');
-      if (!inGroup.length) { g.style.display = term ? 'none' : ''; return; }
       var visible = Array.prototype.some.call(inGroup, function (c) { return c.style.display !== 'none'; });
       g.style.display = visible ? '' : 'none';
     });
