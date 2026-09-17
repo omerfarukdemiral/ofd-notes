@@ -26,7 +26,7 @@ token'dan drift'e, ai ile çalışırken her gün duyulan 46 kavram. 6 animasyon
 ai-kavramlar/
 ├── index.html         tek dosya sayfa (şemalar + motor)
 ├── ai-kavramlar.mp4   sayfanın kare kare kaydı, 1920×1080 30fps
-└── kapak.png          link önizlemesi
+└── kapak.jpg          link önizlemesi (1200×630)
 ```
 
 Kavramlar şekille anlatılıyor; metin okunmasa da şema anlaşılsın diye kuruldu.
