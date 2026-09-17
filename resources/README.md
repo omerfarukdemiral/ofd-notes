@@ -17,6 +17,14 @@ Videodan çıkmayan, doğrulanmış kürasyonlar. Kart yerine tek bir web sayfas
 |---|---|---|---|
 | [claude-code-skills](claude-code-skills/) — Skill Havuzu | X'te dolaşan Claude Code skill listesi | 22 | 17 |
 
+## Animasyonlu anlatımlar
+
+Kavramı şekille anlatan, adım adım ilerleyen tek sayfa. Videosu da yanında.
+
+| Sayfa | Konu | Kavram | Şema |
+|---|---|---|---|
+| [ai-kavramlar](ai-kavramlar/) — ai'ın hayatımıza soktuğu terimler | token'dan drift'e ai sözlüğü | 46 | 6 |
+
 ## Klasör düzeni
 
 Her serinin yapısı aynı:
