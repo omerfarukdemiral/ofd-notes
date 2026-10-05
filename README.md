@@ -13,6 +13,7 @@ Bitmiş bir doküman değil — sürekli büyüyen bir defter.
 | Klasör | İçerik |
 |---|---|
 | [`resources/`](resources/) | Uzun teknik videoların içinden çıkarılmış infografik kartları |
+| [`mods/`](mods/) | Claude Code modları (function hooks eklentileri) |
 
 Yeni başlıklar eklendikçe tablo büyüyecek.
 

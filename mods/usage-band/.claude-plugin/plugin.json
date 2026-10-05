@@ -1,0 +1,7 @@
+{
+  "name": "usage-band",
+  "version": "0.1.0",
+  "description": "Mesaj kutusunun üstünde 5h/7d limit, token ve maliyet hapları",
+  "author": { "name": "Ömer Faruk Demiral" },
+  "types": "./types/index.d.ts"
+}
