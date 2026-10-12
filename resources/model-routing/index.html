@@ -1,0 +1,539 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>model routing · ofd-notes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Space+Grotesk:wght@700&display=swap">
+<style>
+html,body{margin:0}
+/* layout: kare sahne 1:1, soldan sağa akış, açık zemin, ekran kaydına hazır */
+:root{
+  --bg:#F7F7FA; --grid:#EDECF3; --fg:#1A1830; --accent:#6D4FE0; --accent-bg:#EFEAFE;
+  --line:#D9D7E6; --muted:#8A87A2; --rule:#E6E4EF; --panel:#FFFFFF;
+  --warn:#C8473B; --warn-bg:#FBEAE7;
+  --easy:#1AA7C4; --medium:#F08A24; --hard:#C8338F;
+  --display:"Space Grotesk", system-ui, sans-serif;
+  --mono:"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  color-scheme:light;
+}
+html,body{background:var(--bg);color:var(--fg)}
+body{font-family:var(--mono);padding-inline:16px;padding-block:12px}
+.wrap{width:min(100%, calc(100vh - 84px));min-width:280px;margin:0 auto;display:flex;flex-direction:column;gap:10px}
+svg{width:100%;height:auto;display:block}
+.controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+button{font:500 12px var(--mono);color:var(--fg);background:var(--panel);border:1px solid var(--line);padding:7px 11px;border-radius:3px;cursor:pointer}
+button:hover{border-color:var(--accent)}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.hint{color:var(--muted);font-size:11px}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <svg id="stage" viewBox="0 0 640 640" role="img" aria-label="Claude model routing simülasyonu, dört seviye"></svg>
+  <div class="controls" id="controls">
+    <button id="btnPause" type="button">duraklat</button>
+    <button id="btnRestart" type="button">baştan</button>
+    <button id="btnSpeed" type="button">hız 1x</button>
+    <span class="hint">H tuşu kontrolleri gizler</span>
+  </div>
+</div>
+
+<script id="sim">
+// ---- simülasyon modeli: saf fonksiyonlar, DOM yok ----
+// fiyatlar: Anthropic API liste fiyatı, $ / 1M token, Ekim 2026
+const MODELS = {
+  haiku:  { name:"haiku 5.5",  inP:0.10, outP:0.50, mult:"×1",   base:1 },
+  sonnet: { name:"sonnet 5.5", inP:2,    outP:10,   mult:"×20",  base:2 },
+  opus:   { name:"opus 5.5",   inP:4,    outP:20,   mult:"×40",  base:3 },
+  fable:  { name:"fable 5.1",  inP:10,   outP:50,   mult:"×100", base:4 },
+};
+const ORDER = ["haiku","sonnet","opus","fable"];
+const EFF = {
+  low:  { out:1500,  bonus:0,   seg:1 },
+  med:  { out:4000,  bonus:0.5, seg:2 },
+  high: { out:10000, bonus:1,   seg:3 },
+  max:  { out:24000, bonus:1.5, seg:4 },
+};
+const IN_TOK = 6000;
+const DIFF = { E:{req:1,r:4}, M:{req:2.5,r:6.5}, H:{req:3.8,r:9} };
+const TASKS = ["E","M","H","E","M","H"];
+
+const callCost = (m,inT,outT) => m==="test" ? 0 : (inT*MODELS[m].inP + outT*MODELS[m].outP)/1e6;
+const solves = (m,e,d) => MODELS[m].base + EFF[e].bonus >= DIFF[d].req;
+// kontrol katmanı: test = test + typecheck + lint, model çağırmaz, bedava
+//                  review = test + sonnet'in diff'i okuması, ücretli
+const VERIFY = { test:{ m:"test", inT:0, outT:0 }, review:{ m:"sonnet", inT:3000, outT:500 } };
+// testler kusursuz değil: 6. görevde zayıf modelin yanlış cevabı testlerden geçiyor.
+// review (sonnet diff'i okur) bu hatayı yakalıyor.
+const TEST_MISS = [5];
+const ROUTER = { m:"haiku", inT:1500, outT:150 };
+
+const LEVELS = [
+  { key:"1", title:"hepsi fable", sub:"her işe en güçlü model · max effort · kontrol yok", router:false,
+    plan:()=>[["fable","max"]], verify:()=>"none" },
+  { key:"2", title:"hepsi haiku", sub:"her işe en ucuz model · kontrol yok", router:false,
+    plan:()=>[["haiku","high"]], verify:()=>"none" },
+  { key:"3", title:"haiku + test", sub:"ucuzdan başla · test geçmezse bir basamak yüksel", router:false,
+    plan:()=>[["haiku","low"],["haiku","max"],["opus","high"],["fable","high"]], verify:()=>"test" },
+  { key:"4", title:"routing", sub:"router işi tanır · zor işte test + review", router:true,
+    plan:(i,d)=> d==="E" ? [["haiku","low"]] : d==="M" ? [["haiku","max"]] : [["sonnet","high"],["opus","high"]],
+    verify:(i,d)=> d==="H" ? "review" : "test" },
+];
+
+function taskSteps(L, i){
+  const d = TASKS[i], steps = [];
+  if(L.router) steps.push({kind:"router", ...ROUTER, cost:callCost(ROUTER.m,ROUTER.inT,ROUTER.outT)});
+  const plan = L.plan(i,d), vmode = L.verify(i,d);
+  let solved = false, fooledAny = false;
+  for(let k=0;k<plan.length;k++){
+    const [m,e] = plan[k], ok = solves(m,e,d);
+    steps.push({kind:"attempt", m, e, inT:IN_TOK, outT:EFF[e].out, cost:callCost(m,IN_TOK,EFF[e].out), ok, escalated:k>0, vmode});
+    if(vmode!=="none"){
+      const v = VERIFY[vmode];
+      const testPass = ok || TEST_MISS.includes(i);
+      const pass = vmode==="review" ? ok : testPass;
+      const fooled = pass && !ok;
+      steps.push({kind:"verify", m:v.m, inT:v.inT, outT:v.outT, cost:callCost(v.m,v.inT,v.outT), pass, fooled, testPass, vmode});
+      if(pass){ solved=ok; fooledAny=fooled; break; }
+    } else { solved = ok; break; }
+  }
+  return { d, steps, solved, vmode, fooled:fooledAny };
+}
+function simulate(L){
+  let tokens=0, cost=0, calls=0, solved=0, attempts=0, silent=0;
+  for(let i=0;i<TASKS.length;i++){
+    const t = taskSteps(L,i);
+    for(const s of t.steps){ tokens+=s.inT+s.outT; cost+=s.cost; if(s.kind!=="verify"||s.m!=="test") calls++; if(s.kind==="attempt") attempts++; }
+    if(t.solved) solved++; else if(t.vmode==="none" || t.fooled) silent++;
+  }
+  return { tokens, cost, calls, solved, attempts, silent, perTask: cost/TASKS.length, cps: solved? cost/solved : Infinity };
+}
+if(typeof module!=="undefined") module.exports = { LEVELS, simulate, taskSteps };
+</script>
+
+<script>
+(() => {
+const NS = "http://www.w3.org/2000/svg";
+const svg = document.getElementById("stage");
+const C = { bg:"var(--bg)", fg:"var(--fg)", accent:"var(--accent)", accentBg:"var(--accent-bg)", line:"var(--line)", muted:"var(--muted)", rule:"var(--rule)", panel:"var(--panel)", grid:"var(--grid)", warn:"var(--warn)", warnBg:"var(--warn-bg)" };
+const MONO = "IBM Plex Mono, ui-monospace, monospace", DISP = "Space Grotesk, system-ui, sans-serif";
+const LESSON = {
+  "1":["doğru ama pahalı","kolay işe de fable max yaktı"],
+  "2":["ucuz ama kör","4 yanlış cevap sessizce gitti"],
+  "3":["test ucuz modeli kurtarıyor","ama testin görmediği hatayı o da görmüyor"],
+  "4":["bunun adı model routing","daha pahalı, testin kaçırdığını review yakalıyor"],
+};
+const PX_PER_MS = 0.75;   // kare sahne daha küçük, akış hızı ona göre
+
+function el(tag, a={}, parent=svg){ const n=document.createElementNS(NS,tag); for(const k in a) n.setAttribute(k,a[k]); parent.appendChild(n); return n; }
+function txt(x,y,s,a={},parent=svg){ const n=el("text",{x,y,fill:C.fg,"font-family":MONO,"font-size":11,...a},parent); n.textContent=s; return n; }
+const ln = (x1,y1,x2,y2,parent=svg) => el("line",{x1,y1,x2,y2,stroke:C.line,"stroke-width":1.5},parent);
+const fmt$ = v => v>=1 ? "$"+v.toFixed(2) : v>=0.01 ? "$"+v.toFixed(3) : "$"+v.toFixed(4);
+const fadeIn = n => n.animate([{opacity:0},{opacity:1}],{duration:350,easing:"ease-out"});
+// betikli geçiş: CSS transition yerine animate, kare kare kayıtta da aynı çalışsın
+function fadeTo(n,v,d=400){ const from=+getComputedStyle(n).opacity; if(from===v){ n.style.opacity=v; return; }
+  n.animate([{opacity:from},{opacity:v}],{duration:d,easing:"ease-out",fill:"forwards"}); n.style.opacity=v; }
+
+// ---- görev ikonu: database silindiri, kolay 1 / orta 2 / zor 3 ----
+const TCOL = { E:"var(--easy)", M:"var(--medium)", H:"var(--hard)" };
+function cyl(cx, w, top, h){
+  const rx=w/2, ry=w*0.24;
+  return `M${cx-rx} ${top} a${rx} ${ry} 0 1 0 ${w} 0 a${rx} ${ry} 0 1 0 ${-w} 0`+
+         ` M${cx-rx} ${top} V${top+h} a${rx} ${ry} 0 0 0 ${w} 0 V${top}`+
+         ` M${cx-rx} ${top+h/2} a${rx} ${ry} 0 0 0 ${w} 0`;
+}
+const ICON = {
+  E: cyl(0.5,0.42,0.29,0.38),
+  M: cyl(0.33,0.28,0.32,0.34)+" "+cyl(0.67,0.28,0.32,0.34),
+  H: cyl(0.21,0.21,0.34,0.30)+" "+cyl(0.5,0.21,0.34,0.30)+" "+cyl(0.79,0.21,0.34,0.30),
+};
+const ICON_W = { E:0.065, M:0.06, H:0.052 };
+function glyph(d, x, y, size, parent=svg){
+  const g = el("g",{},parent);
+  const shape = el("rect",{x:0,y:0,width:size,height:size,rx:size*0.24,"stroke-width":1.5},g);
+  const icon = el("path",{d:ICON[d],transform:`scale(${size})`,fill:"none","stroke-width":ICON_W[d],"stroke-linecap":"round","stroke-linejoin":"round"},g);
+  const o = { g, shape, icon, d, size };
+  glyphColor(o); place(o,x,y); return o;
+}
+function place(o,x,y){ o.g.setAttribute("transform",`translate(${x-o.size/2} ${y-o.size/2})`); }
+function glyphEmpty(o){ o.shape.setAttribute("fill",C.panel); o.shape.setAttribute("stroke",C.line); o.icon.setAttribute("stroke",C.line); }
+function glyphColor(o){ o.shape.setAttribute("fill",TCOL[o.d]); o.shape.setAttribute("stroke",TCOL[o.d]); o.icon.setAttribute("stroke","#FFFFFF"); }
+
+// ---- statik sahne ----
+const defs = el("defs");
+const pat = el("pattern",{id:"g",width:16,height:16,patternUnits:"userSpaceOnUse"},defs);
+el("path",{d:"M16 0H0V16",fill:"none",stroke:C.grid,"stroke-width":1},pat);
+el("rect",{x:0,y:0,width:640,height:640,fill:C.bg});
+el("rect",{x:0,y:0,width:640,height:640,fill:"url(#g)"});
+
+txt(20,30,"@omerfrkdemiral",{fill:C.muted,"font-size":11});
+const counter = txt(620,30,"",{"text-anchor":"end","font-size":11,fill:C.muted});
+const segs = [0,1,2,3].map(k=>el("rect",{x:20+k*151,y:42,width:145,height:3,rx:1.5,fill:C.line}));
+const title = txt(16,96,"",{"font-family":DISP,"font-weight":700,"font-size":50,"letter-spacing":-1.5});
+const sub = txt(20,122,"",{fill:C.muted,"font-size":13});
+
+// geometri: kuyruk solda → model merdiveni ortada → sonuçlar sağda
+const ROW_H=62, rowT = j => 160+j*88, mid = j => rowT(j)+ROW_H/2, gapY = j => rowT(j)+ROW_H+13;
+const qY = i => 176+i*58, Q_X=44, SLOT_X=596;
+const TRUNK_X=136, ESC_X=158, CARD_L=170, CARD_R=430, GATE_X=462, OUT_X=530;
+
+// sabit hatlar
+ln(TRUNK_X,qY(0),TRUNK_X,qY(5));
+ln(OUT_X,qY(0),OUT_X,qY(5));
+TASKS.forEach((d,i)=>{ ln(Q_X,qY(i),TRUNK_X,qY(i)); ln(OUT_X,qY(i),SLOT_X,qY(i)); });
+
+const reqDots = TASKS.map((d,i)=>glyph(d,Q_X,qY(i),30));
+txt(Q_X,150,"görevler",{"text-anchor":"middle",fill:C.muted,"font-size":10});
+txt(SLOT_X,150,"sonuç",{"text-anchor":"middle",fill:C.muted,"font-size":10});
+
+const verifyLbl = txt(GATE_X,rowT(0)-8,"kontrol",{"text-anchor":"middle",fill:C.muted,"font-size":10});
+const rows = ORDER.map((m,j)=>{
+  const y=mid(j);
+  ln(TRUNK_X,y,CARD_L,y); ln(CARD_R,y,OUT_X,y);
+  const r = el("rect",{x:CARD_L,y:rowT(j),width:CARD_R-CARD_L,height:ROW_H,rx:8,fill:C.panel,stroke:C.line,"stroke-width":1.5});
+  const [nm,ver] = MODELS[m].name.split(" ");
+  const t = txt(CARD_L+16,y+7,"",{"font-family":DISP,"font-weight":700,"font-size":20});
+  t.innerHTML = `${nm}<tspan dx="7" font-family="${MONO}" font-weight="400" font-size="11" fill="var(--muted)">${ver}</tspan>`;
+  txt(CARD_R-16,y-6,MODELS[m].mult,{"text-anchor":"end",fill:C.muted,"font-size":11});
+  const bx0 = CARD_R-16-4*15+3;
+  const bars = [0,1,2,3].map(k=>el("rect",{x:bx0+k*15,y:y+6,width:12,height:4,rx:2,fill:C.line}));
+  const effTxt = txt(bx0-6,y+11,"",{"text-anchor":"end",fill:C.accent,"font-size":10,"font-weight":500});
+  const gate = el("rect",{x:GATE_X-7,y:y-7,width:14,height:14,rx:2,transform:`rotate(45 ${GATE_X} ${y})`,fill:C.panel,stroke:C.line,"stroke-width":1.5});
+  const gMark = txt(GATE_X,y-14,"",{"text-anchor":"middle","font-size":12,"font-weight":500,fill:C.muted});
+  return { r, bars, gate, gMark, effTxt };
+});
+
+const slots = TASKS.map((d,i)=>{
+  const gl = glyph(d,SLOT_X,qY(i),30); glyphEmpty(gl);
+  const badge = el("g",{opacity:0});
+  const bc = el("circle",{cx:SLOT_X+14,cy:qY(i)-14,r:7.5,fill:C.accent,stroke:C.bg,"stroke-width":2},badge);
+  const bt = txt(SLOT_X+14,qY(i)-10.5,"",{"text-anchor":"middle","font-size":9.5,"font-weight":500,fill:"#FFFFFF"},badge);
+  return { gl, badge, bc, bt };
+});
+const solvedTxt = txt(SLOT_X,qY(5)+40,"",{"text-anchor":"middle",fill:C.muted,"font-size":11});
+const warnTxt = txt(300,rowT(3)+ROW_H+30,"",{"text-anchor":"middle",fill:C.fg,"font-size":12.5,"font-weight":500});
+const costTags = TASKS.map((d,i)=>txt(SLOT_X-20,qY(i)-6,"",{"text-anchor":"end","font-size":10,"font-weight":500}));
+const DL = { E:"kolay", M:"orta", H:"zor" };
+// gereksiz pahalı: işin ihtiyacından üst basamaktaki model
+const overkill = (m,d) => (d==="E" && MODELS[m].base>1) || (d==="M" && MODELS[m].base>2);
+
+// alt şerit
+el("line",{x1:20,y1:540,x2:620,y2:540,stroke:C.rule,"stroke-width":1.5});
+const cpsLbl = txt(20,564,"",{fill:C.muted,"font-size":11});
+const cpsTxt = txt(17,606,"",{"font-family":DISP,"font-weight":700,"font-size":40,fill:C.accent});
+[["E","kolay",240],["M","orta",318],["H","zor",390]].forEach(([d,l,x])=>{
+  glyph(d,x,594,18); txt(x+15,598,l,{fill:C.muted,"font-size":11});
+});
+const BAR_BASE=604, BAR_MAX=40;
+const chart = LEVELS.map((L,k)=>{
+  const x = 452+k*44;
+  const r = el("rect",{x,y:BAR_BASE,width:32,height:0,rx:3,fill:C.line});
+  const v = txt(x+16,BAR_BASE-5,"",{"text-anchor":"middle","font-size":9.5});
+  const okl = txt(x+16,BAR_BASE+15,"",{"text-anchor":"middle",fill:C.muted,"font-size":10,"font-weight":500});
+  return { r, v, okl };
+});
+txt(20,630,"simülasyon · Anthropic API liste fiyatları, Ekim 2026",{fill:C.muted,"font-size":9.5});
+
+const RESULTS = LEVELS.map(simulate);
+const RATIO = RESULTS.map(r=>RESULTS[0].cps/r.cps);
+const fmtX = v => (v<10 ? v.toFixed(1).replace(/\.0$/,"") : Math.round(v)) + "×";
+
+const traces = el("g");
+// router: trunk'ın üstünde dikey bir sütun, tüm çizgilerin üstünde
+const routerG = el("g",{opacity:0});
+const routerR = el("rect",{x:TRUNK_X-14,y:qY(0)-16,width:28,height:qY(5)-qY(0)+32,rx:14,fill:C.accentBg,stroke:C.accent,"stroke-width":2},routerG);
+const routerT = txt(0,0,"router",{"text-anchor":"middle","font-size":12,fill:C.accent,"font-weight":500,
+  transform:`translate(${TRUNK_X+4} ${(qY(0)+qY(5))/2}) rotate(-90)`},routerG);
+const routerPick = txt(TRUNK_X,qY(0)-24,"",{"text-anchor":"middle","font-size":10,fill:C.accent,"font-weight":500},routerG);
+function routerFlash(on){ routerR.setAttribute("fill", on?C.accent:C.accentBg); routerT.setAttribute("fill", on?"#FFFFFF":C.accent); }
+const dotLayer = el("g");
+const popLayer = el("g");
+const sfx = (name, v) => { try{ window.__sfx && window.__sfx(name, v); }catch(e){} };
+function pop(x,y,text,big,bad){
+  sfx(bad?"pricey":"process", big?1:0);
+  const size = big ? 18 : 12;
+  const t = txt(x,y,text,{"text-anchor":"middle","font-size":size,"font-weight":500,fill:bad?C.warn:C.accent},popLayer);
+  const a = t.animate([{transform:"translateY(0)",opacity:1},{transform:"translateY(-22px)",opacity:1,offset:0.6},{transform:"translateY(-30px)",opacity:0}],{duration:1300/speed,easing:"ease-out"});
+  a.onfinish=()=>t.remove();
+}
+
+// seviye sonu ders kartı
+const lessonG = el("g",{style:"opacity:0"});
+el("rect",{x:14,y:140,width:612,height:386,rx:12,fill:C.bg,opacity:0.95},lessonG);
+const lessonA = txt(320,300,"",{"text-anchor":"middle","font-family":DISP,"font-weight":700,"font-size":30},lessonG);
+const lessonB = txt(320,336,"",{"text-anchor":"middle",fill:C.muted,"font-size":15},lessonG);
+const lessonC = txt(320,392,"",{"text-anchor":"middle",fill:C.accent,"font-size":14,"font-weight":500},lessonG);
+
+// ---- zaman ----
+let paused=false, speed=1, runId=0;
+const now = () => performance.now();
+const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+function wait(ms, id){
+  return new Promise(res=>{
+    let left=ms, last=now();
+    const tick=()=>{ if(id!==runId) return res(false);
+      const t=now(); if(!paused) left-=(t-last)*speed; last=t;
+      left<=0 ? res(true) : requestAnimationFrame(tick); };
+    requestAnimationFrame(tick);
+  });
+}
+let curTok = null, task = { cost:0, bad:false };
+function animatePath(pts, id, {dashed=false}={}){
+  traces.querySelectorAll("path").forEach(p=>p.setAttribute("opacity",0.28));
+  pts = pts.filter((p,n,a)=>n===0||p[0]!==a[n-1][0]||p[1]!==a[n-1][1]);
+  const d = "M"+pts.map(p=>p.join(" ")).join(" L");
+  const p = el("path",{d,fill:"none",stroke:C.accent,"stroke-width":2.2,"stroke-linejoin":"round","stroke-linecap":"round"},traces);
+  const len = p.getTotalLength();
+  if(dashed) p.setAttribute("stroke-dasharray","6 5");
+  else { p.setAttribute("stroke-dasharray",`${len} ${len}`); p.setAttribute("stroke-dashoffset",len); }
+  const tok = curTok; tok.g.setAttribute("opacity",1);
+  const dur = reduce ? 1 : len/PX_PER_MS;
+  return new Promise(res=>{
+    let t=0, last=now();
+    const tick=()=>{
+      if(id!==runId) return res(false);
+      const n=now(); if(!paused) t+=(n-last)*speed; last=n;
+      const k=Math.min(1,t/dur), pt=p.getPointAtLength(len*k);
+      place(tok,pt.x,pt.y);
+      if(!dashed) p.setAttribute("stroke-dashoffset",len*(1-k));
+      if(k<1) requestAnimationFrame(tick); else res(true);
+    };
+    requestAnimationFrame(tick);
+  });
+}
+
+// ---- durum ----
+const state = { cost:0, solved:0 };
+function paint(){ cpsLbl.textContent="harcanan"; cpsTxt.textContent=fmt$(state.cost); solvedTxt.textContent=`${state.solved} / 6`; }
+function setRow(j, e){
+  rows.forEach((b,k)=>{
+    const on = k===j;
+    b.r.setAttribute("fill", on?C.accentBg:C.panel); b.r.setAttribute("stroke", on?C.accent:C.line);
+    b.bars.forEach((r,n)=>r.setAttribute("fill", on && e && n<EFF[e].seg ? C.accent : C.line));
+    b.effTxt.textContent = on && e ? e : "";
+  });
+}
+function resetGates(){ rows.forEach(b=>{ b.gate.setAttribute("fill",C.panel); b.gate.setAttribute("stroke",C.line); b.gMark.textContent=""; }); }
+function paintChart(upto){
+  chart.forEach((c,k)=>{
+    if(k<=upto){
+      const FLOOR=0.002, v=RESULTS[k].perTask, top=RESULTS[0].perTask;   // log ölçek, etiket gerçek fiyat
+      c.okl.textContent=`${RESULTS[k].solved}/6`; c.okl.setAttribute("fill", RESULTS[k].solved<6?C.warn:C.muted);
+      const h=Math.max(3,BAR_MAX*Math.log(v/FLOOR)/Math.log(top/FLOOR));
+      c.r.setAttribute("height",h); c.r.setAttribute("y",BAR_BASE-h);
+      c.r.setAttribute("fill", k===upto?C.accent:C.line); c.v.setAttribute("y",BAR_BASE-h-5); c.v.textContent=fmt$(v);
+    } else { c.r.setAttribute("height",0); c.v.textContent=""; c.okl.textContent=""; }
+  });
+}
+
+const toSlot = (from, i, id) => animatePath([from,[OUT_X,from[1]],[OUT_X,qY(i)],[SLOT_X,qY(i)]], id);
+
+async function runTask(L, i, id){
+  const t = taskSteps(L,i);
+  reqDots[i].g.setAttribute("opacity",0.25);
+  dotLayer.innerHTML="";
+  curTok = glyph(t.d, Q_X, qY(i), 26, dotLayer);
+  let cur = [Q_X,qY(i)], j=-1, routed=false;
+  task = { cost:0, bad:false };
+  for(let s=0;s<t.steps.length;s++){
+    const st = t.steps[s];
+    if(st.kind==="router"){
+      // router sütununun soluna kadar gel, içinde kaybol
+      if(!await animatePath([cur,[TRUNK_X-20,qY(i)]], id)) return false;
+      curTok.g.setAttribute("opacity",0);
+      state.cost+=st.cost; task.cost+=st.cost; paint();
+      const first = t.steps.find(x=>x.kind==="attempt");
+      sfx("router"); routerFlash(true); routerPick.textContent = `${first.m} · ${first.e}`;
+      if(!await wait(560,id)) return false;
+      routerFlash(false);
+      routed = true;
+      continue;
+    }
+    if(st.kind==="attempt"){
+      const nj = ORDER.indexOf(st.m), y = mid(nj);
+      setRow(nj, st.e);
+      if(st.escalated){
+        // kapıdan dik aşağı, kartlar arasındaki boşluktan sola, kaçış şeridinden yeni satıra
+        if(!await animatePath([cur,[GATE_X,cur[1]],[GATE_X,gapY(j)],[ESC_X,gapY(j)],[ESC_X,y],[CARD_L,y]], id, {dashed:true})) return false;
+      } else if(routed){
+        // router seçtiği satırın hizasından çıkar
+        cur=[TRUNK_X+20,y]; place(curTok,cur[0],cur[1]);
+        if(!await animatePath([cur,[CARD_L,y]], id)) return false;
+      } else {
+        if(!await animatePath([cur,[TRUNK_X,qY(i)],[TRUNK_X,y],[CARD_L,y]], id)) return false;
+      }
+      j = nj;
+      curTok.g.setAttribute("opacity",0);        // model işliyor
+      const bad = overkill(st.m, t.d); task.bad = task.bad || bad;
+      const weak = !st.ok && st.vmode==="none";   // model yetmiyor ve kimse kontrol etmiyor
+      warnTxt.setAttribute("fill", (bad||weak)?C.warn:C.fg);
+      warnTxt.textContent = `${st.escalated?"yüksel → ":""}${DL[t.d]} iş → ${MODELS[st.m].name} · ${st.e} = ${fmt$(st.cost)}${bad?" · gereksiz pahalı":""}${weak?" · model yetmiyor":""}`;
+      pop(300, y-4, "+"+fmt$(st.cost), st.cost>0.1, bad);
+      if(!await wait(380,id)) return false;
+      state.cost+=st.cost; task.cost+=st.cost; paint();
+      cur=[CARD_R,y]; place(curTok,CARD_R,y);
+      if(st.vmode==="none"){
+        if(!await toSlot(cur,i,id)) return false;
+        finishSlot(i, st.ok, true);
+        if(!st.ok && !await wait(650,id)) return false;
+        return true;
+      }
+      if(!await animatePath([cur,[GATE_X-20,y]], id)) return false;
+      cur=[GATE_X-20,y];
+      continue;
+    }
+    if(st.kind==="verify"){
+      const b = rows[j];
+      b.gate.setAttribute("stroke",C.accent);
+      state.cost+=st.cost; task.cost+=st.cost; paint();
+      if(!await wait(320,id)) return false;
+      sfx(st.pass?"pass":"fail"); b.gate.setAttribute("fill", st.pass?C.accent:C.panel);
+      b.gMark.textContent = st.pass ? "" : "×";
+      warnTxt.setAttribute("fill", C.fg);
+      if(st.vmode==="review"){
+        warnTxt.textContent = st.pass ? `test geçti, sonnet review de onayladı = ${fmt$(st.cost)}`
+          : st.testPass ? `test geçti ama sonnet review hatayı yakaladı → yüksel` : `test kaldı → bir basamak yüksel`;
+        if(!st.pass && st.testPass) warnTxt.setAttribute("fill", C.accent);
+      } else {
+        warnTxt.textContent = st.pass ? "test geçti · $0" : "test kaldı → bir basamak yüksel · $0";
+      }
+      if(!await wait(st.vmode==="review" && !st.pass && st.testPass ? 900 : 280, id)) return false;
+      if(st.pass){
+        if(!await toSlot(cur,i,id)) return false;
+        finishSlot(i, !st.fooled, st.fooled, "test geçti ama cevap yanlış, kimse fark etmedi");
+        if(st.fooled && !await wait(900,id)) return false;
+        return true;
+      }
+      if(!t.steps.slice(s+1).some(x=>x.kind==="attempt")){ finishSlot(i,false); return true; }
+    }
+  }
+  return true;
+}
+function finishSlot(i, ok, silent=false, msg="kontrol yok, yanlış cevap sessizce gitti"){
+  sfx(ok?"land":(silent?"silent":"fail"));
+  dotLayer.innerHTML=""; curTok=null;
+  const sl = slots[i];
+  glyphColor(sl.gl); sl.badge.setAttribute("opacity",1);
+  costTags[i].textContent = fmt$(task.cost); costTags[i].setAttribute("fill", task.bad?C.warn:C.fg);
+  if(ok){ state.solved++; sl.bc.setAttribute("fill",C.accent); sl.bt.textContent="✓"; }
+  else {
+    sl.gl.g.setAttribute("opacity",0.45);
+    sl.bc.setAttribute("fill",silent?C.warn:C.muted); sl.bt.textContent = silent ? "!" : "×";
+    if(silent){ warnTxt.setAttribute("fill",C.warn); warnTxt.textContent=msg; }
+  }
+  paint();
+}
+async function showLesson(k, id){
+  sfx("lesson");
+  const L=LEVELS[k];
+  lessonA.textContent=LESSON[L.key][0]; lessonB.textContent=LESSON[L.key][1];
+  const R=RESULTS[k];
+  lessonC.textContent = `görev başı ${fmt$(R.perTask)} · ${R.solved}/6 doğru` + (L.verify(0,"E")!=="none" ? ` · ${R.attempts} deneme` : "");
+  lessonC.setAttribute("fill", R.solved<6 ? C.warn : C.accent);
+  fadeTo(lessonG,1);
+  return wait(2200,id);   // kart açık kalır, sonraki seviye arkasında kurulurken söner
+}
+async function clearTrace(id){ if(!await wait(280,id)) return false; traces.innerHTML=""; resetGates(); setRow(-1); return true; }
+
+function setupLevel(k){
+  const L = LEVELS[k];
+  traces.innerHTML=""; dotLayer.innerHTML="";
+  Object.assign(state,{cost:0,solved:0});
+  segs.forEach((s,n)=>s.setAttribute("fill", n<=k?C.accent:C.line));
+  title.textContent=L.title; counter.textContent=`0${k+1} / 04`; sub.textContent=L.sub;
+  const hasV = L.verify(0,"E")!=="none";
+  rows.forEach(b=>b.gate.setAttribute("opacity", hasV?1:0));
+  verifyLbl.setAttribute("opacity", hasV?1:0); verifyLbl.textContent = L.router ? "test · review" : "test";
+  routerG.setAttribute("opacity", L.router?1:0); routerPick.textContent=""; routerFlash(false);
+  fadeTo(lessonG,0); warnTxt.textContent=""; costTags.forEach(c=>c.textContent=""); popLayer.innerHTML="";
+  fadeIn(title); fadeIn(sub);
+  setRow(-1); resetGates();
+  reqDots.forEach(r=>r.g.setAttribute("opacity",1));
+  slots.forEach(s=>{ glyphEmpty(s.gl); s.gl.g.setAttribute("opacity",1); s.badge.setAttribute("opacity",0); });
+  paintChart(k-1); paint();
+}
+
+async function finale(id){
+  sfx("finale");
+  const ratio=Math.round(RATIO[3]);
+  traces.innerHTML=""; setRow(-1); resetGates(); fadeTo(lessonG,0); warnTxt.textContent=""; routerPick.textContent="";
+  segs.forEach(s=>s.setAttribute("fill",C.accent));
+  title.innerHTML = `routing <tspan fill="var(--accent)">= güven</tspan>`; fadeIn(title); fadeIn(sub);
+  counter.textContent=""; sub.textContent=`fable'dan ${Math.round(RESULTS[0].perTask/RESULTS[3].perTask)} kat ucuz · cascade'den pahalı, sessiz hata yok`;
+  cpsLbl.textContent="görev başı"; cpsTxt.textContent=fmt$(RESULTS[3].perTask); paintChart(3);
+  return wait(6000,id);
+}
+
+// ---- açılış: 4 strateji kartı ----
+const introG = el("g",{style:"opacity:0"});
+el("rect",{x:0,y:0,width:640,height:640,fill:C.bg},introG);
+el("rect",{x:0,y:0,width:640,height:640,fill:"url(#g)"},introG);
+txt(20,30,"@omerfrkdemiral",{fill:C.muted,"font-size":11},introG);
+txt(20,72,"AI LEVELS · CLAUDE EDITION",{fill:C.muted,"font-size":11,"letter-spacing":2},introG);
+txt(16,114,"aynı 6 görev",{"font-family":DISP,"font-weight":700,"font-size":44,"letter-spacing":-1.2},introG);
+txt(20,138,"4 farklı yaklaşım, aynı fiyat listesi",{fill:C.muted,"font-size":14},introG);
+const introCards = LEVELS.map((L,k)=>{
+  const y = 158 + k*86, g = el("g",{},introG);
+  el("rect",{x:20,y,width:600,height:76,rx:10,fill:C.panel,stroke:k===3?C.accent:C.line,"stroke-width":1.5},g);
+  txt(38,y+24,`0${k+1}`,{fill:C.accent,"font-size":11,"font-weight":500},g);
+  txt(38,y+52,L.title,{"font-family":DISP,"font-weight":700,"font-size":24},g);
+  txt(38,y+68,L.sub,{fill:C.muted,"font-size":11},g);
+  const used = new Set();
+  TASKS.forEach((d,i)=>taskSteps(L,i).steps.forEach(s=>{ if(s.kind==="attempt") used.add(s.m); }));
+  ORDER.forEach((m,n)=>{
+    const on = used.has(m), x = 600 - (3-n)*60 - 54, cy = y+38;
+    el("rect",{x,y:cy-12,width:54,height:24,rx:12,fill:on?C.accentBg:C.panel,stroke:on?C.accent:C.line,"stroke-width":1.2},g);
+    txt(x+27,cy+4,m,{"text-anchor":"middle","font-size":10,fill:on?C.accent:C.muted,"font-weight":on?500:400},g);
+  });
+  if(L.router) txt(600,y+18,"router ile",{"text-anchor":"end","font-size":10,fill:C.accent,"font-weight":500},g);
+  return g;
+});
+TASKS.forEach((d,i)=>glyph(d,36+i*38,524,28,introG));
+[["E","kolay",290],["M","orta",368],["H","zor",440]].forEach(([d,l,x])=>{
+  glyph(d,x,524,18,introG); txt(x+15,528,l,{fill:C.muted,"font-size":11},introG);
+});
+txt(20,630,"simülasyon · Anthropic API liste fiyatları, Ekim 2026",{fill:C.muted,"font-size":9.5},introG);
+
+async function intro(id){
+  fadeTo(introG,1,1);
+  introCards.forEach((g,k)=>g.animate([{opacity:0,transform:"translateY(8px)"},{opacity:1,transform:"none"}],
+    {duration:420,delay:250+k*260,easing:"ease-out",fill:"backwards"}));
+  if(!await wait(5200,id)) return false;
+  setupLevel(0);
+  fadeTo(introG,0,450);
+  return wait(500,id);
+}
+
+async function loop(){
+  const id = ++runId;
+  while(id===runId){
+    if(!await intro(id)) return;
+    for(let k=0;k<LEVELS.length;k++){
+      if(k>0) setupLevel(k);
+      if(!await wait(450,id)) return;
+      for(let i=0;i<TASKS.length;i++){
+        if(!await runTask(LEVELS[k],i,id)) return;
+        if(!await clearTrace(id)) return;
+      }
+      cpsLbl.textContent="görev başı"; cpsTxt.textContent=fmt$(RESULTS[k].perTask); paintChart(k);
+      if(!await showLesson(k,id)) return;
+    }
+    if(!await finale(id)) return;
+  }
+}
+
+document.getElementById("btnPause").addEventListener("click",e=>{ paused=!paused; e.currentTarget.textContent=paused?"devam":"duraklat"; });
+document.getElementById("btnRestart").addEventListener("click",()=>{ paused=false; document.getElementById("btnPause").textContent="duraklat"; loop(); });
+document.getElementById("btnSpeed").addEventListener("click",e=>{ speed = speed===1?0.5:speed===0.5?2:1; e.currentTarget.textContent=`hız ${speed}x`; });
+document.addEventListener("keydown",e=>{ if(e.key==="h"||e.key==="H"){ const c=document.getElementById("controls"); c.hidden=!c.hidden; } });
+
+(document.fonts?.ready ?? Promise.resolve()).then(loop);
+})();
+</script>
+
+</body>
+</html>

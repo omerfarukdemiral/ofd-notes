@@ -25,6 +25,14 @@ Kavramı şekille anlatan, adım adım ilerleyen tek sayfa. Videosu da yanında.
 |---|---|---|---|
 | [ai-kavramlar](ai-kavramlar/) — ai'ın hayatımıza soktuğu terimler | token'dan drift'e ai sözlüğü | 46 | 6 |
 
+## Deneyler
+
+Simülasyonla sınanmış kurulumlar. Animasyon, kod ve kopyalanabilir dosyalar bir arada.
+
+| Sayfa | Konu | Yaklaşım | Profil |
+|---|---|---|---|
+| [model-routing](model-routing/) — model routing | claude code'da hangi iş hangi modele | 4 | 4 |
+
 ## Klasör düzeni
 
 Her serinin yapısı aynı:
