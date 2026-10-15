@@ -40,6 +40,7 @@ Bir reponun ya da uygulamanın içini açan tek sayfa. Kaynak kod ve gerekirse b
 | Sayfa | Konu | Kaynak | Yöntem |
 |---|---|---|---|
 | [grok-build-anatomi](grok-build-anatomi/) — grok build anatomisi | xAI'ın terminal kodlama ajanının mimarisi | xai-org/grok-build | kaynak kod + REA |
+| [grok-build-mimari](grok-build-mimari/) — grok build mimarisi | aynı reponun tek sayfalık, etkileşimli mimari şeması | xai-org/grok-build | kaynak kod + archify |
 
 ## Klasör düzeni
 

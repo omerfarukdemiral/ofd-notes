@@ -1,0 +1,377 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Grok Build Mimarisi",
+    "output": "grok-build-arch/v3.1/grok-build-architecture.html",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/xai-org/grok-build",
+      "provider": "github",
+      "revision": "2bdd1d6a6369de0e8c68132ea4539e9abd9e14a8"
+    },
+    "views": [
+      {
+        "id": "turn-path",
+        "label": "Bir prompt turu",
+        "focus": [
+          "tui",
+          "leader",
+          "agent",
+          "sampler",
+          "xai"
+        ],
+        "note": "Kullanıcı girdisi ACP üzerinden ajana, oradan sampler ile xAI API'ye akar."
+      },
+      {
+        "id": "tool-path",
+        "label": "Araç yürütme",
+        "focus": [
+          "agent",
+          "tools",
+          "workspace",
+          "mcp"
+        ],
+        "note": "Model araç çağırınca tools crate'i yerel workspace'i veya MCP sunucularını kullanır."
+      },
+      {
+        "id": "clients",
+        "label": "İstemciler",
+        "focus": [
+          "tui",
+          "ide",
+          "headless",
+          "leader"
+        ],
+        "note": "TUI, IDE ve headless mod aynı ACP ajanına bağlanır."
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "tui",
+      "type": "frontend",
+      "label": "TUI",
+      "sublabel": "xai-grok-pager",
+      "pos": [
+        40,
+        150
+      ],
+      "size": [
+        150,
+        64
+      ],
+      "sources": [
+        {
+          "path": "crates/codegen/xai-grok-pager/README.md",
+          "label": "TUI README"
+        }
+      ]
+    },
+    {
+      "id": "ide",
+      "type": "external",
+      "label": "IDE / ACP istemci",
+      "sublabel": "grok agent stdio",
+      "pos": [
+        40,
+        300
+      ],
+      "size": [
+        150,
+        64
+      ]
+    },
+    {
+      "id": "headless",
+      "type": "frontend",
+      "label": "Headless",
+      "sublabel": "grok -p",
+      "pos": [
+        40,
+        450
+      ],
+      "size": [
+        150,
+        64
+      ]
+    },
+    {
+      "id": "leader",
+      "type": "backend",
+      "label": "Leader / IPC",
+      "sublabel": "~/.grok/leader.sock",
+      "pos": [
+        290,
+        300
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "sources": [
+        {
+          "path": "crates/codegen/xai-grok-shell/src/leader/mod.rs",
+          "label": "leader mimarisi"
+        }
+      ]
+    },
+    {
+      "id": "agent",
+      "type": "backend",
+      "label": "Ajan runtime",
+      "sublabel": "MvpAgent · xai-grok-shell",
+      "pos": [
+        530,
+        300
+      ],
+      "size": [
+        180,
+        64
+      ],
+      "tag": "session + compaction",
+      "sources": [
+        {
+          "path": "crates/codegen/xai-grok-shell/src/session/acp_session.rs",
+          "label": "ACP oturumu"
+        },
+        {
+          "path": "crates/codegen/xai-grok-agent/README.md",
+          "label": "Agent builder"
+        }
+      ]
+    },
+    {
+      "id": "sampler",
+      "type": "backend",
+      "label": "Sampler",
+      "sublabel": "xai-grok-sampler",
+      "pos": [
+        790,
+        300
+      ],
+      "size": [
+        150,
+        64
+      ],
+      "sources": [
+        {
+          "path": "crates/codegen/xai-grok-sampler/src/lib.rs",
+          "label": "stream + retry"
+        }
+      ]
+    },
+    {
+      "id": "xai",
+      "type": "cloud",
+      "label": "xAI API",
+      "sublabel": "api.x.ai/v1",
+      "pos": [
+        1010,
+        300
+      ],
+      "size": [
+        140,
+        64
+      ]
+    },
+    {
+      "id": "store",
+      "type": "database",
+      "label": "~/.grok",
+      "sublabel": "oturum · memory · auth",
+      "pos": [
+        545,
+        120
+      ],
+      "size": [
+        150,
+        64
+      ]
+    },
+    {
+      "id": "tools",
+      "type": "backend",
+      "label": "Araçlar",
+      "sublabel": "xai-grok-tools",
+      "pos": [
+        545,
+        500
+      ],
+      "size": [
+        150,
+        64
+      ],
+      "sources": [
+        {
+          "path": "crates/codegen/xai-grok-tools/src/lib.rs",
+          "label": "tools"
+        }
+      ]
+    },
+    {
+      "id": "workspace",
+      "type": "backend",
+      "label": "Workspace",
+      "sublabel": "FS · VCS · exec",
+      "pos": [
+        305,
+        500
+      ],
+      "size": [
+        150,
+        64
+      ],
+      "sources": [
+        {
+          "path": "crates/codegen/xai-grok-workspace/src/lib.rs",
+          "label": "workspace"
+        }
+      ]
+    },
+    {
+      "id": "mcp",
+      "type": "external",
+      "label": "MCP sunucuları",
+      "sublabel": "rmcp · OAuth",
+      "pos": [
+        1010,
+        500
+      ],
+      "size": [
+        140,
+        64
+      ],
+      "sources": [
+        {
+          "path": "crates/codegen/xai-grok-mcp/src/lib.rs",
+          "label": "MCP"
+        }
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "grok süreci (xai-grok-shell)",
+      "wraps": [
+        "leader",
+        "agent",
+        "sampler",
+        "tools",
+        "workspace"
+      ]
+    },
+    {
+      "kind": "security-group",
+      "label": "OS sandbox · Landlock/Seatbelt",
+      "wraps": [
+        "tools",
+        "workspace"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "tui-leader",
+      "from": "tui",
+      "to": "leader",
+      "label": "ACP",
+      "variant": "emphasis",
+      "fromSide": "right",
+      "toSide": "top"
+    },
+    {
+      "id": "ide-leader",
+      "from": "ide",
+      "to": "leader",
+      "label": "JSON-RPC stdio"
+    },
+    {
+      "id": "headless-leader",
+      "from": "headless",
+      "to": "leader",
+      "label": "ACP"
+    },
+    {
+      "id": "leader-agent",
+      "from": "leader",
+      "to": "agent",
+      "label": "route",
+      "variant": "emphasis"
+    },
+    {
+      "id": "agent-sampler",
+      "from": "agent",
+      "to": "sampler",
+      "label": "turn",
+      "variant": "emphasis"
+    },
+    {
+      "id": "sampler-xai",
+      "from": "sampler",
+      "to": "xai",
+      "label": "HTTPS stream",
+      "variant": "emphasis"
+    },
+    {
+      "id": "agent-store",
+      "from": "agent",
+      "to": "store",
+      "label": "persist",
+      "variant": "dashed"
+    },
+    {
+      "id": "agent-tools",
+      "from": "agent",
+      "to": "tools",
+      "label": "tool call",
+      "labelAt": [
+        620,
+        432
+      ]
+    },
+    {
+      "id": "tools-workspace",
+      "from": "tools",
+      "to": "workspace",
+      "label": "FS / exec"
+    },
+    {
+      "id": "tools-mcp",
+      "from": "tools",
+      "to": "mcp",
+      "label": "MCP",
+      "variant": "dashed"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "İstemciler",
+      "items": [
+        "TUI: Elm tarzı Action → Effect döngüsü",
+        "IDE'ler ve headless mod aynı ACP ajanını kullanır",
+        "Leader modu tek makinede birden çok istemciyi paylaştırır"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Ajan çekirdeği",
+      "items": [
+        "xai-grok-shell: oturum, compaction, hooks, subagent",
+        "xai-grok-agent: prompt + araç + model paketleri",
+        "Sampler: akış, retry, doom-loop tespiti"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Güvenlik",
+      "items": [
+        "Kernel sandbox süreç başlangıcında uygulanır",
+        "Alt süreç ağı seccomp ile engellenir",
+        "Egress proxy origin bazlı web erişimi"
+      ]
+    }
+  ]
+}
