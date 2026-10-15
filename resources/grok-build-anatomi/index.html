@@ -1,0 +1,438 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Grok Build Anatomisi · ofd-notes</title>
+<meta name="description" content="xAI'ın grok-build reposunun mimarisi, agent döngüsü ve REA ile yayınlanan binary'nin kaynakla karşılaştırması.">
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+html{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0}
+[hidden]{display:none!important}
+img{max-width:100%}
+/* Layout: tek sütunlu teknik dosya; solda sabit bölüm indeksi (geniş ekran), sağda okuma sütunu.
+   REA bulguları ayrı "kanıt" rengiyle işaretli. */
+:root{
+  --bg:#F3F5F8; --surface:#FFFFFF; --ink:#141B26; --muted:#5A6577; --line:#D9DEE7;
+  --accent:#2448B0; --accent-soft:#E3E9F8; --evidence:#9A5B00; --evidence-soft:#FBF0DE;
+  --ok:#1E7A4C;
+  --f-display:"Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
+  --f-body:"Instrument Sans", "Helvetica Neue", system-ui, sans-serif;
+  --f-mono:"JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0F141C; --surface:#161D28; --ink:#E6EAF1; --muted:#97A2B4; --line:#283244;
+  --accent:#8FA9F2; --accent-soft:#1D2A4A; --evidence:#E9B25E; --evidence-soft:#2E2414; --ok:#6CCB97; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0F141C; --surface:#161D28; --ink:#E6EAF1; --muted:#97A2B4; --line:#283244;
+  --accent:#8FA9F2; --accent-soft:#1D2A4A; --evidence:#E9B25E; --evidence-soft:#2E2414; --ok:#6CCB97; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:16px/1.6 var(--f-body);
+  padding-left:max(16px, env(safe-area-inset-left,0px));padding-right:max(16px, env(safe-area-inset-right,0px));padding-block:0 64px}
+.wrap{max-width:1180px;margin:0 auto;display:grid;grid-template-columns:200px minmax(0,1fr);gap:48px}
+nav.toc{position:sticky;top:env(safe-area-inset-top,0px);align-self:start;padding-top:40px;font-size:13px}
+nav.toc ol{list-style:none;margin:0;padding:0;display:grid;gap:6px;counter-reset:s}
+nav.toc a{color:var(--muted);text-decoration:none;display:flex;gap:8px}
+nav.toc a::before{counter-increment:s;content:counter(s,decimal-leading-zero);font-family:var(--f-mono);font-size:11px;color:var(--line);padding-top:2px}
+nav.toc a:hover,nav.toc a:focus-visible{color:var(--accent)}
+main{min-width:0;padding-top:40px}
+@media (max-width:900px){.wrap{grid-template-columns:minmax(0,1fr)} nav.toc{display:none}}
+
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;line-height:1.15;margin:0}
+h1{font-size:clamp(36px,6vw,60px);font-weight:700;letter-spacing:-.02em}
+h2{font-size:28px;font-weight:700;letter-spacing:-.01em}
+h3{font-size:18px;font-weight:600;font-family:var(--f-body)}
+p{margin:0;max-width:68ch}
+code,.mono{font-family:var(--f-mono);font-size:.86em}
+p code,li code,td code{background:var(--accent-soft);padding:1px 5px;border-radius:4px;color:var(--ink);overflow-wrap:anywhere}
+a{color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.eyebrow{font-family:var(--f-mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+header.hero{display:grid;gap:18px;padding-bottom:36px;border-bottom:1px solid var(--line)}
+.lede{font-size:19px;color:var(--muted);max-width:62ch}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-top:8px}
+.facts div{background:var(--surface);padding:14px 16px;display:grid;gap:2px}
+.facts b{font-family:var(--f-display);font-size:26px;font-weight:700;font-variant-numeric:tabular-nums}
+.facts span{font-size:13px;color:var(--muted)}
+
+section{padding-block:44px;border-bottom:1px solid var(--line);display:grid;gap:18px}
+section > .head{display:grid;gap:6px}
+ul.plain{margin:0;padding-left:20px;display:grid;gap:6px;max-width:72ch}
+
+.ev{background:var(--evidence-soft);border:1px solid color-mix(in srgb,var(--evidence) 35%,transparent);border-radius:10px;padding:16px 18px;display:grid;gap:10px}
+.ev .tag{font-family:var(--f-mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--evidence);font-weight:600}
+.ev pre{margin:0}
+
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:14px;min-width:520px}
+th,td{text-align:left;padding:9px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12px;font-family:var(--f-mono);letter-spacing:.04em;text-transform:uppercase;color:var(--muted);font-weight:600}
+tr:last-child td{border-bottom:0}
+td.num{font-variant-numeric:tabular-nums;text-align:right;font-family:var(--f-mono);white-space:nowrap}
+
+.diagram{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px}
+.diagram svg{display:block;min-width:760px;width:100%;height:auto}
+svg .box{fill:var(--surface);stroke:var(--line);stroke-width:1.5}
+svg .box.key{fill:var(--accent-soft);stroke:var(--accent)}
+svg .box.cloud{fill:var(--bg);stroke:var(--muted);stroke-dasharray:4 4}
+svg .box.closed{fill:var(--evidence-soft);stroke:var(--evidence);stroke-dasharray:5 3}
+svg text{fill:var(--ink);font-family:var(--f-body);font-size:13px}
+svg text.t{font-weight:600;font-size:14px}
+svg text.s{fill:var(--muted);font-size:11.5px;font-family:var(--f-mono)}
+svg .edge{stroke:var(--muted);stroke-width:1.4;fill:none}
+svg .edge.hot{stroke:var(--accent);stroke-width:2}
+svg .lbl{fill:var(--accent);font-family:var(--f-mono);font-size:11px}
+svg .arrow{fill:var(--muted)} svg .arrow.hot{fill:var(--accent)}
+
+ol.steps{list-style:none;margin:0;padding:0;display:grid;gap:0;counter-reset:st;border-left:2px solid var(--line);margin-left:12px}
+ol.steps li{counter-increment:st;position:relative;padding:0 0 16px 28px;max-width:72ch}
+ol.steps li::before{content:counter(st);position:absolute;left:-13px;top:0;width:24px;height:24px;border-radius:50%;background:var(--surface);border:2px solid var(--accent);color:var(--accent);font:600 12px/20px var(--f-mono);text-align:center}
+ol.steps b{display:block}
+
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}
+.cell{display:grid;gap:8px;align-content:start;padding:16px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+.cell p,.cell li{font-size:14.5px}
+.pill{display:inline-block;font-family:var(--f-mono);font-size:11.5px;padding:2px 8px;border-radius:999px;border:1px solid var(--line);color:var(--muted);margin:2px 4px 2px 0;white-space:nowrap}
+.pill.on{border-color:var(--accent);color:var(--accent)}
+.pill.ev{border-color:var(--evidence);color:var(--evidence);background:transparent;padding:2px 8px;display:inline-block;border-radius:999px}
+details{border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+details summary{cursor:pointer;padding:12px 16px;font-weight:600}
+details > div{padding:0 16px 16px;display:grid;gap:12px}
+footer{padding-top:28px;color:var(--muted);font-size:13px;display:grid;gap:6px}
+@media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+html{scroll-behavior:smooth}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+<nav class="toc" aria-label="Bölümler">
+  <ol>
+    <li><a href="#yontem">Nasıl incelendi</a></li>
+    <li><a href="#mimari">Genel mimari</a></li>
+    <li><a href="#surecler">Süreçler ve modlar</a></li>
+    <li><a href="#dongu">Agent döngüsü</a></li>
+    <li><a href="#model">Model ve API</a></li>
+    <li><a href="#araclar">Araçlar</a></li>
+    <li><a href="#guvenlik">Güvenlik</a></li>
+    <li><a href="#eklenti">Genişletme</a></li>
+    <li><a href="#tui">TUI</a></li>
+    <li><a href="#auth">Kimlik ve ağ</a></li>
+    <li><a href="#rea">REA: binary bulguları</a></li>
+    <li><a href="#notlar">Dikkat çekenler</a></li>
+    <li><a href="#crateler">Crate envanteri</a></li>
+  </ol>
+</nav>
+
+<main>
+<header class="hero">
+  <span class="eyebrow">xai-org/grok-build · kaynak 1.0.45 · kurulu binary 1.0.52</span>
+  <h1>Grok Build anatomisi</h1>
+  <p class="lede">SpaceXAI'ın terminal tabanlı kodlama ajanı <code>grok</code>'un kaynak kodu ve yayınlanan binary'si. Kod nasıl katmanlanmış, bir istek modele nasıl gidip araç çağrısı olarak geri dönüyor, ve açık kaynak repoda olmayıp binary'de olan parçalar neler.</p>
+  <div class="facts">
+    <div><b>107</b><span>workspace crate</span></div>
+    <div><b>~2.0M</b><span>satır Rust</span></div>
+    <div><b>172 MB</b><span>macOS arm64 binary</span></div>
+    <div><b>13</b><span>repoda olmayan crate (binary'de)</span></div>
+    <div><b>444</b><span><code>GROK_*</code> ortam değişkeni</span></div>
+  </div>
+</header>
+
+<section id="yontem">
+  <div class="head"><span class="eyebrow">01 · Yöntem</span><h2>Nasıl incelendi</h2></div>
+  <p>İki ayrı kaynaktan bakıldı ve bulgular birbiriyle karşılaştırıldı.</p>
+  <div class="grid2">
+    <div class="cell"><h3>Kaynak kod</h3><p>Repo <code>--depth 1</code> ile klonlandı (commit <code>2bdd1d6</code>, 29 Eylül 2026, <code>SOURCE_REV 559751fd…</code>). Crate'ler, giriş noktası, agent döngüsü, araçlar ve kullanıcı kılavuzu okundu. Hiçbir şey derlenmedi veya çalıştırılmadı.</p></div>
+    <div class="cell"><h3>REA ile binary</h3><p><a href="https://rea.tools/">REA</a> (rea-agents 6.5.0) MCP kurulumu yapılmadan, CLI olarak <code>npx rea-agents</code> ile çalıştırıldı. Hedef, makinede kurulu olan <code>~/.grok/downloads/grok-macos-aarch64</code> dosyasının bir kopyasıydı. Hepsi statik analiz; binary çalıştırılmadı.</p></div>
+  </div>
+  <div class="ev">
+    <span class="tag">REA komutları</span>
+    <pre class="mono" style="white-space:pre-wrap;overflow-wrap:anywhere">rea doctor
+rea inspect-artifact      bin/grok   # envanter, sha256 c2caa989…
+rea inspect-macho         bin/grok   # segmentler, dylib'ler, 483 import
+rea inspect-signature     bin/grok   # imza, hardened runtime
+rea inspect-rust-binary   bin/grok   # rustc commit, cargo-auditable</pre>
+    <p style="font-size:14px">Derin fonksiyon analizi (decompile) için Hopper, Ghidra veya IDA gerekiyor; <code>rea doctor</code> hiçbirini kurulu bulmadı. Bu yüzden binary tarafı başlık, imza, import ve gömülü string düzeyinde kaldı. Gömülü panic yolları (<code>crates/…/src/*.rs</code>) kaynakla eşleştirme için yeterince zengin çıktı.</p>
+  </div>
+</section>
+
+<section id="mimari">
+  <div class="head"><span class="eyebrow">02 · Mimari</span><h2>Genel mimari</h2></div>
+  <p>Tek bir binary her şeyi taşıyor, ama içeride net bir ayrım var: arayüz (pager) ajanla doğrudan konuşmuyor, <b>ACP</b> (Agent Client Protocol) üzerinden konuşuyor. Ajan aynı süreçte bir thread'de veya makine başına tek bir <b>leader</b> süreçte çalışabiliyor.</p>
+  <div class="diagram" role="img" aria-label="Grok Build katman şeması">
+    <svg viewBox="0 0 900 470" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="arrow" d="M0,0 L10,5 L0,10 z"/></marker>
+        <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="arrow hot" d="M0,0 L10,5 L0,10 z"/></marker>
+      </defs>
+      <!-- clients -->
+      <rect class="box" x="20" y="20" width="200" height="64" rx="8"/>
+      <text class="t" x="34" y="46">TUI (pager)</text><text class="s" x="34" y="66">xai-grok-pager · ratatui</text>
+      <rect class="box" x="240" y="20" width="200" height="64" rx="8"/>
+      <text class="t" x="254" y="46">IDE / ACP istemcisi</text><text class="s" x="254" y="66">grok agent stdio</text>
+      <rect class="box" x="460" y="20" width="200" height="64" rx="8"/>
+      <text class="t" x="474" y="46">Headless / -p</text><text class="s" x="474" y="66">CI, script, JSON çıktı</text>
+      <rect class="box cloud" x="680" y="20" width="200" height="64" rx="8"/>
+      <text class="t" x="694" y="46">grok.com relay</text><text class="s" x="694" y="66">wss://code.grok.com</text>
+
+      <!-- ACP band -->
+      <line class="edge hot" x1="120" y1="84" x2="120" y2="128" marker-end="url(#ah)"/>
+      <line class="edge hot" x1="340" y1="84" x2="340" y2="128" marker-end="url(#ah)"/>
+      <line class="edge hot" x1="560" y1="84" x2="560" y2="128" marker-end="url(#ah)"/>
+      <line class="edge" x1="780" y1="84" x2="780" y2="128" marker-end="url(#a)"/>
+      <text class="lbl" x="128" y="112">ACP</text><text class="lbl" x="348" y="112">ACP JSON-RPC</text><text class="lbl" x="568" y="112">ACP</text>
+
+      <rect class="box key" x="20" y="130" width="860" height="96" rx="10"/>
+      <text class="t" x="36" y="156">Agent runtime · xai-grok-shell</text>
+      <text class="s" x="36" y="176">leader (~/.grok/leader.sock) veya in-process thread · SessionActor · turn loop</text>
+      <text class="s" x="36" y="196">compaction · subagent'lar · hooks · memory · workflow (Rhai) · relay sync</text>
+      <text class="s" x="36" y="214">xai-grok-agent: sistem prompt'u, agent tanımları, araç setleri</text>
+
+      <!-- lower layer -->
+      <line class="edge hot" x1="140" y1="226" x2="140" y2="270" marker-end="url(#ah)"/>
+      <line class="edge" x1="450" y1="226" x2="450" y2="270" marker-end="url(#a)"/>
+      <line class="edge" x1="760" y1="226" x2="760" y2="270" marker-end="url(#a)"/>
+
+      <rect class="box" x="20" y="272" width="250" height="84" rx="8"/>
+      <text class="t" x="34" y="298">Sampler</text><text class="s" x="34" y="318">xai-grok-sampler · SSE</text><text class="s" x="34" y="336">retry, iptal, doom-loop</text>
+      <rect class="box" x="300" y="272" width="300" height="84" rx="8"/>
+      <text class="t" x="314" y="298">Tools + Workspace</text><text class="s" x="314" y="318">xai-grok-tools · xai-grok-workspace</text><text class="s" x="314" y="336">izinler, checkpoint, LSP, PTY</text>
+      <rect class="box" x="630" y="272" width="250" height="84" rx="8"/>
+      <text class="t" x="644" y="298">Eklentiler</text><text class="s" x="644" y="318">MCP (rmcp) · skills</text><text class="s" x="644" y="336">plugins · hooks</text>
+
+      <line class="edge hot" x1="140" y1="356" x2="140" y2="398" marker-end="url(#ah)"/>
+      <line class="edge" x1="450" y1="356" x2="450" y2="398" marker-end="url(#a)"/>
+      <rect class="box cloud" x="20" y="400" width="250" height="56" rx="8"/>
+      <text class="t" x="34" y="424">Model API</text><text class="s" x="34" y="443">cli-chat-proxy.grok.com · api.x.ai</text>
+      <rect class="box" x="300" y="400" width="300" height="56" rx="8"/>
+      <text class="t" x="314" y="424">İşletim sistemi</text><text class="s" x="314" y="443">Seatbelt / Landlock sandbox · dosya · shell</text>
+      <rect class="box closed" x="630" y="400" width="250" height="56" rx="8"/>
+      <text class="t" x="644" y="424">Sadece binary'de</text><text class="s" x="644" y="443">grove · memory-server · cursor</text>
+    </svg>
+  </div>
+  <p style="font-size:14px;color:var(--muted)">Mavi oklar bir isteğin ana yolunu gösteriyor. Kesikli kahverengi kutu, REA'nın binary'de bulup açık kaynak repoda olmayan crate'leri temsil ediyor (bkz. <a href="#rea">REA bulguları</a>).</p>
+  <div class="grid2">
+    <div class="cell"><h3>Bağımlılık omurgası</h3><p class="mono" style="font-size:12.5px;line-height:1.7">pager-bin → pager, shell, workspace<br>shell → agent, tools, sampler, chat-state, mcp, hooks, memory<br>workspace → tools, sandbox, permission-rules<br>sampler → sampling-types (shell'e bağımlı değil)</p></div>
+    <div class="cell"><h3>Ağırlık nerede</h3><p>Kodun yarıdan fazlası iki crate'te: arayüz (<code>pager</code>, ~551k satır) ve ajan çalışma zamanı (<code>shell</code>, ~430k satır). Araçlar 165k, workspace 125k satır.</p></div>
+  </div>
+</section>
+
+<section id="surecler">
+  <div class="head"><span class="eyebrow">03 · Süreçler</span><h2>Süreçler ve çalışma modları</h2></div>
+  <p><code>main()</code> <code>xai-grok-pager-bin/src/main.rs:2036</code> içinde. İlk iş olarak binary'nin kendini alt süreç olarak mı çağırdığına bakıyor: Mermaid render'ı ve ses yakalama, aynı binary'nin sandbox'lı çocuk süreçleri olarak çalışıyor. Sonra clap ile argümanları ayrıştırıyor, kurum politikasını (<code>requirements.toml</code>) doğruluyor, Sentry ve crash handler'ı kuruyor, tokio runtime'ını başlatıyor.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Mod</th><th>Komut</th><th>Ne işe yarıyor</th></tr></thead>
+    <tbody>
+      <tr><td>TUI</td><td><code>grok</code></td><td>Tam ekran arayüz; ajan aynı süreçte bir thread'de veya leader'da</td></tr>
+      <tr><td>Tek atış</td><td><code>grok -p "…"</code></td><td><code>--output-format plain|json|streaming-json|streaming-messages-json</code></td></tr>
+      <tr><td>Stdio</td><td><code>grok agent stdio</code></td><td>Editör entegrasyonları için ACP JSON-RPC</td></tr>
+      <tr><td>Headless</td><td><code>grok agent headless</code></td><td><code>wss://code.grok.com/ws/code-agent</code> relay'i üzerinden uzaktan sürülür</td></tr>
+      <tr><td>Serve</td><td><code>grok agent serve</code></td><td>WebSocket sunucusu, varsayılan <code>127.0.0.1:2419</code>, paylaşılan secret ile</td></tr>
+      <tr><td>Leader</td><td><code>grok agent leader</code></td><td>Makine başına tek ajan süreci; istemciler <code>~/.grok/leader.sock</code> ile bağlanır</td></tr>
+    </tbody>
+  </table></div>
+  <p>Diğer alt komutlar: <code>login</code>, <code>mcp</code>, <code>plugin</code>, <code>memory</code>, <code>models</code>, <code>sessions</code>, <code>usage</code>, <code>worktree</code>, <code>dashboard</code>, <code>update</code>, <code>doctor</code>, <code>wrap</code> (OSC 52 pano yönlendiren PTY sarmalayıcı) ve fazlası.</p>
+</section>
+
+<section id="dongu">
+  <div class="head"><span class="eyebrow">04 · Agent döngüsü</span><h2>Bir tur nasıl işliyor</h2></div>
+  <p>Çekirdek <code>SessionActor</code>, <code>xai-grok-shell/src/session/acp_session_impl/</code> altında yaklaşık 90 dosya. Ana örnekleme döngüsü <code>turn.rs:2747</code>'deki <code>loop {</code>. Her yineleme şu sırayla ilerliyor:</p>
+  <ol class="steps">
+    <li><b>Tekrar dedektörü</b>Aynı araç çağrısı üst üste tekrarlanıyorsa modeli dürtüyor, sürerse turu durduruyor. Kod yorumunda bir turda 224 kez çağrılan <code>todo_write</code> vakası anılıyor.</li>
+    <li><b>Ön sıkıştırma</b>Bağlam eşik değerini (%80) aşacaksa örneklemeden önce otomatik compaction.</li>
+    <li><b>Modeli çağır</b><code>run_turn_via_sampler</code>; API, HTTP ve boşta zaman aşımı hatalarında jitter'lı geri çekilme.</li>
+    <li><b>Araç çağrılarını topla</b>Hiç yoksa tur bitiyor; ama önce Stop hook'ları, "tembellik" sınıflandırıcısı ve <code>/goal</code> kontrolleri çalışıyor.</li>
+    <li><b>Araçları paralel çalıştır</b><code>execute_tool_calls</code> çağrıları bir <code>FuturesUnordered</code> içinde eşzamanlı yürütüyor; her biri izin kontrolünden geçip <code>WorkspaceOps::call_tool</code>'a gidiyor.</li>
+    <li><b>Sonuçları ekle ve başa dön</b><code>--max-turns</code> sınırı ve taşma sıkıştırması kontrol edilip döngü tekrar başlıyor.</li>
+  </ol>
+  <div class="grid2">
+    <div class="cell"><h3>Kendini toparlama</h3><p><code>length_salvage.rs</code> çıktı sınırında kesilen yanıttan sonra otomatik "devam" diyor. Sunucu tarafındaki döngü dedektörü başlıklarına göre "doom-loop" kurtarması yapılıyor. Çok büyük prompt'lar diske yazılıp modele özet veriliyor.</p></div>
+    <div class="cell"><h3>Subagent'lar</h3><p>Model <code>spawn_subagent</code> ile alt ajan başlatıyor, arka planda çalıştırabiliyor, mesaj gönderebiliyor. Alt ajanlar ayrı git worktree'de izole çalışabiliyor. <code>grok-build-orchestrator</code> profili tüm düzenlemeleri alt ajanlara devretmeyi söylüyor. <code>/workflow</code>, Rhai script'leriyle ajan orkestrasyonu yapıyor (varsayılan bütçe 128 ajan).</p></div>
+    <div class="cell"><h3>Compaction</h3><p>Ortak <code>xai-grok-compaction</code> crate'i Grok sohbetiyle paylaşılıyor. Kodlamada tüm oturum tek bir özetle değiştiriliyor. Manuel <code>/compact</code>, otomatik, hata kurtarma ve iki geçişli "prefire" türleri var.</p></div>
+  </div>
+</section>
+
+<section id="model">
+  <div class="head"><span class="eyebrow">05 · Model</span><h2>Model ve API katmanı</h2></div>
+  <p><code>xai-grok-sampler</code> üç farklı API biçimiyle konuşabiliyor ve her biri için ayrı bir SSE akış dönüştürücüsü var. Sampler katmanı bilerek shell'e bağımlı değil: ham chunk'lar → <code>SamplingEvent</code> → yeniden deneme ve iptali yöneten bir actor.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Backend</th><th>Uç nokta</th><th>Not</th></tr></thead>
+    <tbody>
+      <tr><td>Chat Completions</td><td><code>/v1/chat/completions</code></td><td>Enum varsayılanı</td></tr>
+      <tr><td>Responses</td><td><code>/v1/responses</code></td><td>Varsayılan modeller bunu kullanıyor</td></tr>
+      <tr><td>Anthropic Messages</td><td><code>/v1/messages</code></td><td>Claude biçimli çıktı modlarıyla birlikte</td></tr>
+    </tbody>
+  </table></div>
+  <p>Gömülü <code>default_models.json</code>: varsayılan <code>grok-4.6</code>, ayrıca <code>grok-4.5</code>. İkisinde de 500k bağlam penceresi ve <code>high</code> reasoning; grok-4.6'da <code>xhigh</code> de var. Model seçim sırası: CLI bayrağı → ortam değişkeni → <code>config.toml</code> → uzak ayarlar → JSON varsayılanları.</p>
+  <div class="ev"><span class="tag">REA · binary teyidi</span><p style="font-size:14.5px">Binary'deki stringlerde <code>grok-4.6</code> 40, <code>grok-4.5</code> 13 kez geçiyor; ayrıca kaynakta görmediğim bir <code>grok-4.20-0309-reasoning</code> adı var. Ortam değişkeni listesi <code>GROK_MODELS_BASE_URL</code>, <code>GROK_MANAGED_CONFIG_URL</code>, <code>GROK_TRACE_UPLOAD_*</code> ve <code>OTEL_EXPORTER_OTLP_*</code> ile bitişik duruyor.</p></div>
+</section>
+
+<section id="araclar">
+  <div class="head"><span class="eyebrow">06 · Araçlar</span><h2>Modele açılan araçlar</h2></div>
+  <p>Araçlar <code>xai_tool_runtime::Tool</code> trait'ini uyguluyor ve ad alanlarına ayrılmış. Varsayılan <code>grok-build</code> seti:</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Grup</th><th>Model tarafındaki adlar</th></tr></thead>
+    <tbody>
+      <tr><td>Dosya</td><td><code>read_file</code> (görsel, PDF, PPTX dahil), <code>search_replace</code>, <code>write</code>, <code>list_dir</code>, <code>grep</code></td></tr>
+      <tr><td>Shell</td><td><code>run_terminal_command</code>, <code>get_terminal_command_output</code>, <code>kill_terminal_command</code>, <code>monitor</code></td></tr>
+      <tr><td>Alt ajan</td><td><code>spawn_subagent</code>, <code>get_command_or_subagent_output</code>, <code>wait_commands_or_subagents</code>, <code>kill_command_or_subagent</code>, <code>send_subagent_message</code></td></tr>
+      <tr><td>Planlama</td><td><code>todo_write</code>, <code>enter_plan_mode</code>, <code>exit_plan_mode</code>, <code>ask_user_question</code>, <code>update_goal</code>, <code>workflow</code></td></tr>
+      <tr><td>Zamanlama</td><td><code>scheduler_create</code>, <code>scheduler_list</code>, <code>scheduler_delete</code> (<code>/loop</code>)</td></tr>
+      <tr><td>MCP</td><td><code>search_tool</code> (BM25 ile bulma), <code>use_tool</code> (çağırma)</td></tr>
+      <tr><td>Web, medya</td><td><code>web_search</code>, <code>web_fetch</code>, <code>image_gen</code>, <code>image_edit</code>, <code>image_to_video</code>, <code>reference_to_video</code></td></tr>
+      <tr><td>Diğer</td><td><code>memory_search</code>, <code>memory_get</code>, <code>lsp</code>, <code>send_feedback</code></td></tr>
+    </tbody>
+  </table></div>
+  <div class="grid2">
+    <div class="cell"><h3>Birden çok araç "lehçesi"</h3><p>Aynı iş için farklı araç setleri var ve agent profiline göre seçiliyor:</p>
+      <div><span class="pill on">grok-build</span><span class="pill">grok-build-concise</span><span class="pill">hashline</span><span class="pill">codex</span><span class="pill">opencode</span><span class="pill">grok-computer</span></div>
+      <p><b>hashline</b> düzenlemeleri satır hash'lerine sabitliyor ve bir benchmark harness'ı var. Bu, araç tasarımının değerlendirme sonuçlarına göre ayarlandığını düşündürüyor.</p></div>
+    <div class="cell"><h3>Port edilen kod</h3><p><b>openai/codex</b>'ten (Apache-2.0) <code>apply_patch</code>, <code>grep_files</code>, <code>list_dir</code>, <code>read_file</code>. <b>sst/opencode</b>'dan (MIT) <code>bash</code>, <code>edit</code>, <code>glob</code>, <code>grep</code>, <code>read</code>, <code>skill</code>, <code>todowrite</code>, <code>write</code>. Lisans notları <code>THIRD-PARTY-NOTICES</code> içinde.</p>
+      <p>Çıktı sınırları: araç sonucu başına 40 KB, bash için 20k karakter. MCP araçları modelin listesine doğrudan yüklenmiyor; önce <code>search_tool</code> ile aranıyor.</p></div>
+  </div>
+</section>
+
+<section id="guvenlik">
+  <div class="head"><span class="eyebrow">07 · Güvenlik</span><h2>İzinler, sandbox ve geri alma</h2></div>
+  <p>Bir araç çağrısı şu sırayla yetkilendiriliyor:</p>
+  <ol class="steps">
+    <li><b>PreToolUse hook'ları</b>Kullanıcı veya kurum script'leri çağrıyı engelleyebilir.</li>
+    <li><b>Kurallar</b>deny → ask → allow, ör. <code>Bash(rm -rf *)</code>, <code>MCPTool(x__*)</code>.</li>
+    <li><b>Hatırlanan proje izinleri</b>Daha önce "her zaman izin ver" denmiş olanlar.</li>
+    <li><b>Salt-okunur otomatik onay</b>Shell komutu <code>&amp;&amp;</code>, <code>||</code>, <code>;</code> ve pipe'lardan bölünüp her parça okuma listesine karşı kontrol ediliyor.</li>
+    <li><b>Mod politikası</b><code>default</code>, <code>acceptEdits</code>, <code>plan</code>, <code>auto</code>, <code>dontAsk</code>, <code>bypassPermissions</code>. <code>auto</code> modu, hızlı güvenli yolları olan bir LLM transkript sınıflandırıcısı.</li>
+  </ol>
+  <div class="grid2">
+    <div class="cell"><h3>OS sandbox</h3><p><code>nono</code> crate'i üzerinden macOS'ta Seatbelt, Linux'ta Landlock (+ seccomp ile ağ kesme). Varsayılan profil <code>off</code>; ayrıca <code>workspace</code>, <code>devbox</code>, <code>read-only</code>, <code>strict</code>. Kernel, ajanın kendi hook'larını ve güven dosyalarını yeniden yazmasını engelliyor.</p></div>
+    <div class="cell"><h3>Checkpoint ve /rewind</h3><p>Her prompt için bir <code>RewindCheckpoint</code>: o turda okunan veya değişen her dosyanın anlık görüntüsü, <code>xai-hunk-tracker</code>'dan değişiklik farkı ve isteğe bağlı git HEAD. <code>/rewind</code> (takma adı <code>/undo</code>) ile geri alınıyor.</p></div>
+    <div class="cell"><h3>Kurum denetimi</h3><p><code>requirements.toml</code> (<code>~/.grok/</code> veya <code>/etc/grok/</code>) bypass modunu kapatabiliyor. Klasör güveni proje hook'larını, MCP'yi, LSP'yi, kuralları ve skill'leri birlikte açıp kapatıyor.</p></div>
+  </div>
+  <div class="ev"><span class="tag">REA · binary teyidi</span><p style="font-size:14.5px">Import tablosunda <code>_sandbox_init</code> ve <code>_sandbox_free_error</code> var; stringlerde <code>(version 1)(allow default)</code> Seatbelt profili ve <code>xai-grok-sandbox/src/command/backend/seatbelt.rs</code> yolu geçiyor. İmza: Developer ID, X.AI Corporation (<code>5Y6N3AJ54S</code>), hardened runtime açık, entitlement yok, imza tarihi 12 Ekim 2026.</p></div>
+</section>
+
+<section id="eklenti">
+  <div class="head"><span class="eyebrow">08 · Genişletme</span><h2>Yapılandırma ve eklentiler</h2></div>
+  <div class="grid2">
+    <div class="cell"><h3>Config</h3><p><code>~/.grok/config.toml</code> ve her dizin seviyesinde <code>.grok/config.toml</code>. Öncelik: CLI → env → <code>requirements.toml</code>/MDM → overlay → config → managed config → varsayılanlar.</p></div>
+    <div class="cell"><h3>MCP</h3><p><code>[mcp_servers.&lt;ad&gt;]</code> altında stdio, HTTP/SSE ve streamable HTTP. Araçlar <code>sunucu__arac</code> biçiminde adlandırılıyor. OAuth token'ları <code>~/.grok/mcp_credentials.json</code>.</p></div>
+    <div class="cell"><h3>Skills ve komutlar</h3><p><code>SKILL.md</code> klasörleri <code>.grok/skills</code>, <code>.agents/skills</code>, <code>.claude/skills</code>, <code>.cursor/skills</code> altından okunuyor. <code>commands/*.md</code> slash komutu oluyor.</p></div>
+    <div class="cell"><h3>Plugin ve hook'lar</h3><p>Plugin: <code>skills/</code>, <code>commands/</code>, <code>agents/</code>, <code>hooks/hooks.json</code>, <code>.mcp.json</code>, <code>.lsp.json</code>. Git tabanlı marketplace'lerden kuruluyor. Hook olayları SessionStart'tan PostCompact'a kadar 15+ olay.</p></div>
+  </div>
+  <p><b>Claude Code uyumluluğu</b> belirgin: <code>.claude/settings*.json</code> doğrudan okunuyor, izin modu adları ve <code>-p</code>, <code>--output-format</code>, <code>--resume</code>, <code>--continue</code> gibi bayraklar aynı, <code>/import-claude</code> ayarları içe aktarıyor, ve Claude, Codex, Cursor oturumları keşfedilebiliyor. Yaklaşık 60 slash komutu arasında <code>/compact</code>, <code>/rewind</code>, <code>/plan</code>, <code>/goal</code>, <code>/loop</code>, <code>/dream</code>, <code>/imagine</code>, <code>/deep-research</code>, <code>/workflow</code> ve oyun olan <code>/gboom</code> var.</p>
+</section>
+
+<section id="tui">
+  <div class="head"><span class="eyebrow">09 · Arayüz</span><h2>TUI ve render</h2></div>
+  <p>ratatui 0.29 ve crossterm 0.28 üzerine yazılmış, ama satır içi terminal (<code>xai-ratatui-inline</code>), prompt editörü (<code>xai-ratatui-textarea</code>) ve tema/sözdizimi katmanı kendi crate'leri. Scrollback uygulamanın kendisine ait: blok türleri (ajan, düşünme, araç), yapışkan tur başlıkları, seçim, arama, katlama. <code>--minimal</code> modunda biten bloklar terminalin kendi geçmişine bir kez basılıyor, altta sadece küçük canlı bir bölge kalıyor.</p>
+  <div class="grid2">
+    <div class="cell"><h3>Mermaid, tarayıcısız</h3><p>Warp'ın dagre portu (<code>third_party/mermaid-to-svg</code>) → <code>resvg</code> → PNG. Node, headless tarayıcı veya ağ yok. Girdi güvenilmez sayılıp aynı binary'nin kısa ömürlü bir alt sürecinde render ediliyor.</p></div>
+    <div class="cell"><h3>Test yaklaşımı</h3><p>Arayüz uçtan uca bir PTY harness'ı ile test ediliyor: <code>xai-grok-pager-pty-harness</code> (42.7k satır) ve alacritty_terminal tabanlı <code>ptyctl</code>.</p></div>
+  </div>
+  <div class="ev"><span class="tag">REA · binary teyidi</span><p style="font-size:14.5px">Bağlanan sistem kütüphaneleri: AppKit, CoreGraphics, CoreAudio, AudioUnit, IOKit, CoreServices, Security, SystemConfiguration. Import'lar bunları açıklıyor: <code>AudioUnit*</code> sesli dikte, <code>FSEventStream*</code> dosya izleme, <code>IOPMAssertionCreateWithName</code> uzun görevlerde uykuyu engelleme, <code>openpty</code> terminal, <code>clonefile</code> APFS kopyala-yaz worktree'leri. Bellek ayırıcı jemalloc (<code>_rjem_*</code>).</p></div>
+</section>
+
+<section id="auth">
+  <div class="head"><span class="eyebrow">10 · Kimlik ve ağ</span><h2>Kimlik doğrulama, uç noktalar, telemetri</h2></div>
+  <p>Varsayılan giriş <code>auth.x.ai</code> üzerinden tarayıcı OAuth'u; token'lar <code>~/.grok/auth.json</code>'a 0600 izniyle yazılıp arka planda yenileniyor. Alternatifler: device-code akışı, kurumsal OIDC SSO (PKCE), veya <code>XAI_API_KEY</code>.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Uç nokta</th><th>Ne için</th></tr></thead>
+    <tbody>
+      <tr><td><code>cli-chat-proxy.grok.com/v1</code></td><td>OAuth ile çıkarım, modeller, uzak ayarlar, geri bildirim, trace</td></tr>
+      <tr><td><code>api.x.ai/v1</code></td><td>API anahtarıyla çıkarım, görsel, video, tokenize</td></tr>
+      <tr><td><code>code.grok.com</code>, <code>grok.com/ws/gw/</code></td><td>Relay ve gateway WebSocket'leri; oturumlar grok.com'a senkronlanıyor (yerel disk asıl kaynak)</td></tr>
+      <tr><td><code>x.ai/cli/install.sh</code></td><td>Güncelleme</td></tr>
+    </tbody>
+  </table></div>
+  <p>Telemetri: Mixpanel, Sentry, OTLP ve birleşik log; giden veride <code>xai-grok-secrets</code> regex ile sır temizliyor. Kaynaktan derlenen sürümde Mixpanel token'ı ve Sentry DSN'i yalnızca derleme zamanında enjekte edildiği için ürün telemetrisi varsayılan olarak kapalı. <code>/privacy</code> eğitim verisi tercihini yönetiyor.</p>
+</section>
+
+<section id="rea">
+  <div class="head"><span class="eyebrow">11 · REA</span><h2>Binary ile kaynak arasındaki fark</h2></div>
+  <p>Binary sembolleri temizlenmiş (yalnızca 486 sembol), ama Rust panic mesajları kaynak dosya yollarını taşıyor. Bu yolları repodaki crate listesiyle karşılaştırınca, kurulu 1.0.52 binary'sinde açık kaynak 1.0.45 ağacında hiç bulunmayan 13 crate çıktı.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Crate (yalnızca binary'de)</th><th>Gömülü yollardan görünen</th></tr></thead>
+    <tbody>
+      <tr><td><code>grove</code>, <code>grove-git</code>, <code>grove-shm</code>, <code>grove-daemon-db</code></td><td>Arka plan daemon'u, klon deposu, paylaşılan git nesne veritabanı, fsmonitor taraması. Repodaki <code>third_party/README.md</code> "grove" için <code>nfsserve</code> ve <code>fuser</code>'ı listeliyor ama ikisi de ağaçta yok.</td></tr>
+      <tr><td><code>xai-grok-grove-dataplane</code></td><td>Router, arama, skills ve coverage modülleri; grove ile ajan arasındaki veri düzlemi gibi duruyor</td></tr>
+      <tr><td><code>xai-grok-memory-server</code></td><td><code>capture</code>, <code>dream</code>, <code>import</code>, <code>export</code> RPC'leri. Stringlerde "Dream" adlı bir hafıza birleştirme turu için model prompt'ları var</td></tr>
+      <tr><td><code>xai-grok-cursor</code></td><td><code>ask_question</code>, <code>create_plan</code>, <code>edit_notebook</code>, <code>cursor_shell</code> gibi araçlar ve bir prompt şablonu. Adlarından Cursor tarzı ayrı bir araç seti olduğu anlaşılıyor; binary'deki agent listesinde de <code>cursor</code> profili var</td></tr>
+      <tr><td><code>xai-grok-cursor-worker</code></td><td>Claim/worktree/klon yaşam döngüsü, git kimlik bilgileri, bridge oturumu</td></tr>
+      <tr><td><code>xai-agent-host-state</code>, <code>-transport</code>, <code>xai-grok-agent-config</code></td><td>Ajan barındırma katmanı</td></tr>
+      <tr><td><code>xai-repo-changes</code>, <code>xai-libgit2-extensions</code></td><td>Çalışma alanı değişikliklerini arşivleme, temel ağaç hesaplama</td></tr>
+    </tbody>
+  </table></div>
+  <div class="grid2">
+    <div class="cell"><h3>Binary künyesi</h3><ul class="plain" style="font-size:14px">
+      <li>Mach-O 64-bit arm64, tek mimari, 172,237,072 bayt</li>
+      <li>UUID <code>2ECEEAE1-…-1192ADB20736</code></li>
+      <li>Min. macOS 11.0, SDK 27.0</li>
+      <li><code>__TEXT</code> 161 MB, <code>__DATA_CONST</code> 6.8 MB</li>
+      <li>rustc commit <code>ded5c06c…</code> (path'ten çıkarım)</li>
+      <li><code>cargo-auditable</code> bağımlılık bölümü yok</li>
+    </ul></div>
+    <div class="cell"><h3>Agent profilleri (binary)</h3><p>Stringlerde art arda duran liste:</p>
+      <div><span class="pill on">grok-build</span><span class="pill">grok-build-concise</span><span class="pill">grok-build-plan</span><span class="pill">plan-no-subagents</span><span class="pill">grok-build-ask-user</span><span class="pill">codex</span><span class="pill">explore</span><span class="pill">browser-use</span><span class="pill">cursor</span><span class="pill">grok-build-orchestrator</span></div>
+      <p style="font-size:13.5px;color:var(--muted)">Kaynaktaki listede <code>cursor</code> yerine <code>opencode</code> ve <code>general-purpose</code> var.</p></div>
+  </div>
+  <p style="font-size:14px;color:var(--muted)">Sınır: Bu karşılaştırma iki farklı sürüm arasında (kaynak 1.0.45, binary 1.0.52). Bir crate'in repoda olmaması, kapalı tutulduğu anlamına gelebileceği gibi 1.0.45'ten sonra eklendiği anlamına da gelebilir.</p>
+</section>
+
+<section id="notlar">
+  <div class="head"><span class="eyebrow">12 · Notlar</span><h2>Dikkat çekenler</h2></div>
+  <ul class="plain">
+    <li><b>Her yerde ACP.</b> Yerleşik TUI bile ajanla bir protokol üzerinden konuşuyor. Bu yüzden aynı ajan editörde, terminalde ve uzaktan aynı şekilde sürülebiliyor.</li>
+    <li><b>Sistem prompt'ları XOR ile gizlenmiş</b> (<code>prompt_encrypted.rs</code>). Kod yorumu bunun güvenlik değil gizleme olduğunu, anahtarların zaten repoda durduğunu açıkça söylüyor.</li>
+    <li><b>Davranış koruyucuları kodda:</b> tekrar dedektörü, tembellik sınıflandırıcısı, uzunluk kurtarma, sunucu tarafı döngü dedektörü. Model davranışındaki bilinen sorunlar istemci tarafında da yamanmış.</li>
+    <li><b>Proxy modu:</b> ayrı bir <code>xai-workspace-server</code> binary'si tüm araçları çalıştırabiliyor; o zaman shell yerelde hiçbir şey yürütmüyor. Araç API'si <code>grok-tools.proto</code> ile tanımlı (66 mesaj, gRPC).</li>
+    <li><b>Kod hijyeni:</b> çoğu crate'te <code>#![deny(clippy::indexing_slicing)]</code>, actor desenleri yaygın (sampler, chat-state, hunk-tracker).</li>
+    <li><b>Ekstralar:</b> raycaster oyunu <code>/gboom</code>, sesli dikte, görsel ve video üretimi, kopyala-yaz git worktree'leri.</li>
+    <li><b>Katkı kabul edilmiyor.</b> Repo monorepo'dan periyodik senkronlanıyor; kök <code>Cargo.toml</code> üretilmiş bir dosya.</li>
+  </ul>
+</section>
+
+<section id="crateler">
+  <div class="head"><span class="eyebrow">13 · Envanter</span><h2>Crate envanteri</h2></div>
+  <div class="tbl"><table>
+    <thead><tr><th>Crate</th><th style="text-align:right">Satır</th><th>Görev</th></tr></thead>
+    <tbody>
+      <tr><td><code>xai-grok-pager</code></td><td class="num">551k</td><td>TUI: scrollback, prompt, modallar, render</td></tr>
+      <tr><td><code>xai-grok-shell</code></td><td class="num">430k</td><td>Ajan çalışma zamanı; leader, stdio, headless giriş noktaları</td></tr>
+      <tr><td><code>xai-grok-tools</code></td><td class="num">165k</td><td>Araç implementasyonları</td></tr>
+      <tr><td><code>xai-grok-workspace</code></td><td class="num">125k</td><td>Dosya sistemi, VCS, yürütme, izinler, checkpoint</td></tr>
+      <tr><td><code>xai-grok-pager-render</code></td><td class="num">42.8k</td><td>Tema, sözdizimi, pano, girdi</td></tr>
+      <tr><td><code>xai-grok-pager-pty-harness</code></td><td class="num">42.7k</td><td>PTY ile uçtan uca arayüz testleri</td></tr>
+      <tr><td><code>xai-fast-worktree</code></td><td class="num">33.8k</td><td>Kopyala-yaz git worktree'leri</td></tr>
+      <tr><td><code>xai-grok-sandbox</code></td><td class="num">31.3k</td><td>Seatbelt / Landlock</td></tr>
+      <tr><td><code>xai-grok-memory</code></td><td class="num">29.8k</td><td>Oturumlar arası hafıza</td></tr>
+      <tr><td><code>xai-grok-config</code></td><td class="num">28.4k</td><td>Yapılandırma</td></tr>
+      <tr><td><code>xai-grok-login</code></td><td class="num">28.1k</td><td>Giriş akışları, token yenileme</td></tr>
+      <tr><td><code>xai-grok-telemetry</code></td><td class="num">27.1k</td><td>Olaylar, Mixpanel, Sentry, log</td></tr>
+      <tr><td><code>xai-grok-agent</code></td><td class="num">23.7k</td><td>Agent tanımları, sistem prompt'u</td></tr>
+      <tr><td><code>xai-grok-permission-rules</code></td><td class="num">23.4k</td><td>İzin kural motoru</td></tr>
+      <tr><td><code>xai-grok-markdown</code></td><td class="num">22.9k</td><td>Akışlı markdown render</td></tr>
+      <tr><td><code>xai-grok-sampler</code></td><td class="num">17.9k</td><td>HTTP akış, yeniden deneme</td></tr>
+      <tr><td><code>xai-grok-mcp</code></td><td class="num">16.7k</td><td>MCP istemcisi ve OAuth</td></tr>
+    </tbody>
+  </table></div>
+  <details>
+    <summary>Kaynakta olup binary'de yolu görünmeyen crate'ler (30)</summary>
+    <div><p style="font-size:14px">Bunların çoğu ya test/derleme yardımcısı ya da panic mesajı üretmeyecek kadar küçük kütüphaneler; binary'de olmadıkları anlamına gelmiyor.</p>
+    <p class="mono" style="font-size:12.5px;line-height:1.9;overflow-wrap:anywhere">cli-chat-proxy-types · fuzz · ptyctl · ptyctl-cli · xai-circuit-breaker · xai-crash-handler · xai-gix-status · xai-grok-bundle · xai-grok-diag-server · xai-grok-env · xai-grok-image · xai-grok-lifecycle · xai-grok-markdown-core · xai-grok-pager-pty-harness · xai-grok-paths · xai-grok-status-line · xai-grok-test-support · xai-grok-tools-api · xai-grok-version · xai-grok-workspace-daemon · xai-hooks-plugins-types · xai-message-delivery-core · xai-prompt-queue · xai-proto-build · xai-system-power · xai-test-utils · xai-token-estimation · xai-tool-protocol · xai-tracing · xai-tracing-macros</p></div>
+  </details>
+</section>
+
+<footer>
+  <span><a href="../../">← ofd-notes</a></span>
+  <span>Kaynak: <a href="https://github.com/xai-org/grok-build">github.com/xai-org/grok-build</a> @ <code>2bdd1d6</code> · Binary sha256 <code>c2caa989…bbb9</code> · REA 6.5.0 · 15 Ekim 2026</span>
+  <span>Dosya ve satır referansları repo köküne göre. Analiz salt-okunur yapıldı; hiçbir şey derlenmedi veya çalıştırılmadı.</span>
+</footer>
+</main>
+</div>
+
+</body>
+</html>
